@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>永續生活提案 Go</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.19/dist/css/uikit.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.19/dist/js/uikit.min.js"></script>
+    <style>
+        body { background-color: #f4f7f6; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
+        #timer-bar { position: fixed; top: 0; left: 0; width: 100%; height: 6px; background: #ddd; z-index: 1000; }
+        #timer-progress { height: 100%; background: #007bff; width: 100%; transition: width 1s linear; }
+        #timer-text { 
+            position: fixed; 
+            top: 15px; 
+            right: 20px; 
+            font-weight: bold; 
+            color: #ffffff;           
+            z-index: 1000; 
+            background: #000000;      
+            padding: 10px 20px;       
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+            font-size: 1.2em;          
+        }
+        .scenario-header { text-align: center; margin-bottom: 30px; padding-top: 40px; }
+
+        .scenario-card {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #fffdf8;
+            border-radius: 18px;
+            padding: 22px 28px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        }
+
+        .scenario-question-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 14px;
+            line-height: 1.5;
+            text-align: left;
+        }
+
+        .scenario-img {
+            max-width: 800px;
+            width: 100%;
+            border-radius: 15px;
+            margin-bottom: 18px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .scenario-description {
+            font-size: 18px;
+            line-height: 2;
+            color: #333;
+            text-align: left;
+            white-space: pre-line;
+        }
+        
+        .main-content { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .dialogue-column { padding-right: 30px; }
+        .dialogue-img { width: 100%; opacity: 0; transform: translateY(20px); transition: all 0.6s ease; margin-bottom: 20px; border-radius: 10px; }
+        .dialogue-img.visible { opacity: 1; transform: translateY(0); }
+        
+        .form-column { background: white; padding: 35px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); min-height: 600px; }
+        .step-title { border-left: 5px solid #007bff; padding-left: 15px; margin-bottom: 25px; font-weight: bold; }
+        
+        .chat-box { height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 20px; margin-bottom: 15px; border-radius: 12px; background: #fcfcfc; display: flex; flex-direction: column; }
+        .chat-msg { margin-bottom: 15px; padding: 12px 18px; border-radius: 20px; max-width: 85%; font-size: 15px; line-height: 1.6; white-space: pre-line;}
+                
+        .msg-ai { background: #e9ecef; align-self: flex-start; color: #333; border-bottom-left-radius: 2px; }
+        .msg-user { background: #007bff; align-self: flex-end; color: white; border-bottom-right-radius: 2px; }
+        
+        .uk-textarea, .uk-input { border-radius: 8px; border: 1px solid #e0e0e0; transition: border 0.3s; }
+        .uk-textarea:focus, .uk-input:focus { border-color: #007bff; }
+        .uk-form-label { font-weight: 600; color: #555; margin-bottom: 10px; display: block; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="timer-bar"><div id="timer-progress"></div></div>
+    <div id="timer-text">剩餘時間: <span id="time-display">00:00</span></div>
+
+    <div class="scenario-header uk-container">
+        <div class="scenario-card">
+            <div id="scenario-question-title" class="scenario-question-title"></div>
+            <img id="current-p-img" src="" class="scenario-img" alt="情境圖">
+            <div id="scenario-description" class="scenario-description"></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="uk-grid-large" uk-grid>
+            <div class="uk-width-2-5@m dialogue-column">
+                <div id="dialogues-list">
+                    <img id="s-img-1" src="" class="dialogue-img">
+                    <img id="s-img-2" src="" class="dialogue-img">
+                    <img id="s-img-3" src="" class="dialogue-img">
+                    <img id="s-img-4" src="" class="dialogue-img">
+                </div>
+            </div>
+
+            <div class="uk-width-3-5@m">
+                <div class="form-column">
+                    <h3 id="step-title" class="step-title">載入中...</h3>
+                    
+                    <div id="panel-step1" class="step-panel hidden">
+                        <form id="form-step1">
+                            <div class="uk-margin"><label class="uk-form-label">Q1-1-1: 你覺得那些說法有問題?為什麼? (請條列 1, 2, ...)</label><textarea name="q1_1_1" class="uk-textarea" rows="6"></textarea></div>
+                            <div class="uk-margin">
+                                <label class="uk-form-label">Q1-1-2: 你的想法是什麼？ (請詳細說明 1, 2, ...)</label>
+                                <textarea name="q1_1_2_1" class="uk-textarea" rows="5" placeholder="請輸入你的想法"></textarea>
+                            </div>
+                            <div class="uk-margin"><label class="uk-form-label">Q1-1-3: 你的決策是什麼?</label>
+                                <div class="uk-form-controls uk-margin-small-bottom"><label><input class="uk-radio" type="radio" name="q1_1_3" value="A"> (A)</label> <label class="uk-margin-left"><input class="uk-radio" type="radio" name="q1_1_3" value="B"> (B)</label> <label class="uk-margin-left"><input class="uk-radio" type="radio" name="q1_1_3" value="C"> (C) 其他</label></div>                     
+                                <textarea name="q1_1_3_reason" class="uk-textarea" rows="5" placeholder="請說明決策理由"></textarea>
+                            </div>
+                            <div class="uk-margin"><label class="uk-form-label">Q1-1-4: 執行此決策可能遭遇什麼問題?如何解決?</label><textarea name="q1_1_4" class="uk-textarea" rows="5" placeholder="問題: 解決方法"></textarea></div>
+                        </form>
+                    </div>
+
+                    <div id="panel-chat" class="step-panel hidden">
+                        <div id="chat-history" class="chat-box"></div>
+                        <div class="uk-margin uk-flex">
+                            <input class="uk-input" type="text" id="chat-input" placeholder="輸入訊息與 AI 夥伴對話...">
+                            <button class="uk-button uk-button-primary uk-margin-small-left" id="send-chat">傳送</button>
+                        </div>
+                    </div>
+
+                    <div id="panel-confirm" class="step-panel hidden">
+                        <form id="form-confirm">
+                            <p class="uk-text-lead uk-text-bold">剛看完 AI 夥伴的想法，你要改變想法或/和決策嗎？</p>
+                            <div class="uk-margin uk-grid-small uk-child-width-auto uk-grid">
+                                <label><input class="uk-radio" type="radio" name="decision_changed" value="Yes"> Yes</label>
+                                <label class="uk-margin-left"><input class="uk-radio" type="radio" name="decision_changed" value="No"> No</label>
+                            </div>
+                            <div class="uk-margin">
+                                <label class="uk-form-label">理由：</label>
+                                <textarea name="change_reason" class="uk-textarea" rows="6" placeholder="請說明你改變或堅持的理由"></textarea>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="panel-score" class="step-panel hidden"><div id="score-content"></div></div>
+
+                    <div class="uk-margin-large-top uk-text-right"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // scenarioTexts 題目與選項設定
+        const scenarioTexts = {
+            1: {
+                title: "情境1 制度的完美與不便的現實",
+                description: `現在大家的看法不一致，希望你表達看法。
+                選項：(A)支持校園循環餐具制度，(B)反對校園循環餐具制度，(C)其他`
+            },
+            2: {
+                title: "情境 2 舌尖上的高CP值與隱形的垃圾山",
+                description: `現在大家的看法不一致，希望你表達看法。
+                選項：(A)會選擇同樣的餐廳，(B)會因為環保選擇其他餐廳，(C)其他`
+            },
+            3: {
+                title: "情境 3 限時優惠與額外支出",
+                description: `現在大家的看法不一致，希望你表達看法。
+                選項：(A)支持訂閱，(B)反對訂閱，(C)其他`
+            },
+            4: {
+                title: "情境 4 草製吸管與未知的迷霧?",
+                description: `現在大家的看法不一致，希望你表達看法.\n選項: (A) 維持原主題，(B) 變換主題，(C) 其他。`
+            },
+            5: {
+                title: "情境 5 燃燒的熱情與掏空的錢包",
+                description: `現在大家的看法不一致，希望你表達看法。
+                選項：(A)維持原主題，(B)變換主題，(C)其他` 
+            },
+            6: {
+                title: "情境 6 舞台上向心力與一次性隊服",
+                description: `現在大家的看法不一致，希望你表達看法。
+                選項：(A)支持製作「草製吸管」隊服，(B)反對製作「草製吸管」隊服，(C)其他`
+            },
+            7: {
+                title: "情境 7 低碳列車與排碳公路",
+                description: `現在大家的看法不一致，希望你表達看法。
+                選項：(A)開車前往，(B)搭乘高鐵前往，(C)其他`
+            },
+            8: {
+                title: "情境 8 情感的圓桌與勞役的切片",
+                description: `現在大家的看法不一致，希望你表達看法。
+                選項：(A)支持均分，(B)反對均分，(C)其他`
+            }
+        };
+                
+        const state = {
+            scenarioId: 1, step: 1, timer: 0, interval: null, lastInputTime: Date.now(),
+            stuId: localStorage.getItem('stu_id') || 'test_user',
+            scenarioConfig: [{id:1,f:'irrational',s:'rational'},{id:2,f:'rational',s:'irrational'},{id:3,f:'irrational',s:'rational'},{id:4,f:'rational',s:'irrational'},{id:5,f:'irrational',s:'rational'},{id:6,f:'rational',s:'irrational'},{id:7,f:'irrational',s:'rational'},{id:8,f:'rational',s:'irrational'}],
+            stepTimes: { 1: 300, 2: 180, 3: 90, 4: 30 },
+            //stepTimes: { 1: 65, 2: 65, 3: 30, 4: 30 },
+            animationTimer: null, 
+            isResuming: false,
+            animationFinished: false 
+        };
+
+        function initStep() {
+            localStorage.setItem('resume_scenario', state.scenarioId);
+            localStorage.setItem('resume_step', state.step);
+            
+            if (state.interval) {
+                clearInterval(state.interval);
+                state.interval = null;
+            }
+            if (state.animationTimer) {
+                clearTimeout(state.animationTimer);
+                state.animationTimer = null;
+            }
+
+            const config = state.scenarioConfig[state.scenarioId - 1];
+            document.querySelectorAll('.step-panel').forEach(p => p.classList.add('hidden'));
+            document.getElementById('current-p-img').src = `../assets/img/scenarios/p${state.scenarioId}.png`;
+
+            const scenarioText = scenarioTexts[state.scenarioId];
+            document.getElementById('scenario-question-title').innerText = scenarioText.title;
+            document.getElementById('scenario-description').innerText = scenarioText.description;
+            
+            for(let i=1; i<=4; i++) {
+                const img = document.getElementById(`s-img-${i}`);
+                if (img) {
+                    img.classList.remove('visible');
+                    void img.offsetWidth; 
+                    img.src = `../assets/img/dialogues/s${state.scenarioId}-${i}.png`;
+
+                    setTimeout(() => {
+                        img.classList.add('visible');
+                    }, i * 500);
+                }
+            }
+
+            if (state.step === 1) {
+                document.getElementById('panel-step1').classList.add('hidden');
+                state.animationFinished = false; 
+                state.timer = state.stepTimes[1];
+                updateTimerUI();
+
+                state.animationTimer = setTimeout(() => {
+                    document.getElementById('step-title').innerText = `情境 ${state.scenarioId}: 提案填寫`;
+                    document.getElementById('panel-step1').classList.remove('hidden');
+                    
+                    if (!state.isResuming) {
+                        document.getElementById('form-step1').reset();
+                    }
+                    state.isResuming = false; 
+                    state.animationFinished = true; 
+
+                    startTimer(state.stepTimes[1]);
+                }, 2400);
+
+            } else {
+                state.animationFinished = true;
+                if (state.step === 2) {
+                    document.getElementById('step-title').innerText = `情境 ${state.scenarioId}: 與 AI 夥伴對話`;
+                    document.getElementById('panel-chat').classList.remove('hidden');
+                    document.getElementById('chat-history').innerHTML = '';
+                    state.lastInputTime = Date.now();
+                    sendToAi("[SYSTEM_INIT_CHAT]"); 
+                    startTimer(state.stepTimes[2]);
+                } else if (state.step === 3) {
+                    document.getElementById('step-title').innerText = `情境 ${state.scenarioId}: 決策確認`;
+                    document.getElementById('panel-confirm').classList.remove('hidden');
+                    document.getElementById('form-confirm').reset();
+                    startTimer(state.stepTimes[3]);
+                } else if (state.step === 4) {
+                    document.getElementById('step-title').innerText = `情境 ${state.scenarioId}: 評分與評論`;
+                    document.getElementById('panel-score').classList.remove('hidden');
+                    runEvaluation();
+                    startTimer(state.stepTimes[4]);
+                }
+            }
+        }
+
+        async function sendToAi(message) {
+            const config = state.scenarioConfig[state.scenarioId - 1];
+            const aiType = config.f;
+            
+            if (message !== "[SYSTEM_INIT_CHAT]") {
+                appendMsg('user', message);
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentSid = urlParams.get('sid') || localStorage.getItem('sid');
+
+            try {
+                const res = await fetch('../api/public/chat.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        stu_id: state.stuId,
+                        sid: currentSid, 
+                        scenario_id: state.scenarioId,
+                        step: `step${state.step}`,
+                        ai_type: aiType,
+                        message: message
+                    })
+                });
+                const result = await res.json();
+                if (result && result.response) {
+                    appendMsg('ai', result.response);
+                }
+                state.lastInputTime = Date.now();
+            } catch(e) {
+                console.error("AI 對話出錯:", e);
+                appendMsg('ai', '抱歉，我現在無法回應，請檢查網路連接。');
+            }
+        }
+
+        function startTimer(seconds) {
+            if (state.interval) {
+                clearInterval(state.interval);
+            }
+
+            state.timer = seconds;
+            const total = seconds;
+            updateTimerUI();
+
+            state.interval = setInterval(() => {
+                if (state.step === 1 && !state.animationFinished) {
+                    return;
+                }
+
+                state.timer--;
+                updateTimerUI();
+                
+                const progressEl = document.getElementById('timer-progress');
+                if (progressEl) {
+                    progressEl.style.width = `${(state.timer / total) * 100}%`;
+                }
+
+                if (state.step === 1 && state.timer === 60) {
+                    UIkit.modal.alert(`
+                        <h3>提醒</h3>
+                        <p>
+                            剩下 1 分鐘。<br>
+                            請記得先完成「你的決策是什麼」的選擇，<br>
+                            並確認內容都有填寫完成。
+                        </p>
+                    `);
+                }
+                
+                if (state.step === 2 && (Date.now() - state.lastInputTime > 45000)) {
+                    triggerAiNudge();
+                    state.lastInputTime = Date.now();
+                }
+
+                if (state.timer <= 0) {
+                    clearInterval(state.interval);
+                    state.interval = null;
+                    autoSubmitAndNext();
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            const m = Math.floor(state.timer / 60), s = state.timer % 60;
+            const displayEl = document.getElementById('time-display');
+            if (displayEl) {
+                displayEl.innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }
+        }
+
+        async function triggerAiNudge() {
+            const config = state.scenarioConfig[state.scenarioId - 1];
+            const aiType = config.f;
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentSid = urlParams.get('sid') || localStorage.getItem('sid');
+            try {
+                const res = await fetch('../api/public/chat.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stu_id: state.stuId, sid: currentSid, scenario_id: state.scenarioId, step: `step${state.step}`, ai_type: aiType, message: "[SYSTEM_NUDGE_USER_IDLE]" })
+                });
+                const result = await res.json();
+                if (result && result.response) {
+                    appendMsg('ai', result.response);
+                }
+                state.lastInputTime = Date.now();
+            } catch(e) {}
+        }
+
+        async function autoSubmitAndNext() {
+            await saveData();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentSid = urlParams.get('sid') || localStorage.getItem('sid') || '';
+            const currentGroup = urlParams.get('group') || localStorage.getItem('group') || '';
+
+            if (state.step < 4) {
+                state.step++;
+                initStep();
+                return;
+            }
+
+            if (state.scenarioId === 4) {
+                localStorage.setItem('resume_scenario', '5');
+                localStorage.setItem('resume_step', '1');
+                window.location.href = `sleep.html?sid=${encodeURIComponent(currentSid)}&group=${encodeURIComponent(currentGroup)}`;
+                return;
+            }
+
+            if (state.scenarioId < 8) {
+                state.scenarioId++;
+                state.step = 1;
+                if(window.history.pushState) {
+                    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + `?sid=${encodeURIComponent(currentSid)}&group=${encodeURIComponent(currentGroup)}`;
+                    window.history.pushState({path:newUrl},'',newUrl);
+                }
+                initStep();
+            } else {
+                localStorage.removeItem('resume_scenario');
+                localStorage.removeItem('resume_step');
+                window.location.href = `finish.html?sid=${encodeURIComponent(currentSid)}&group=${encodeURIComponent(currentGroup)}`;
+            }
+        }
+
+        async function saveData() {
+            let data = { stu_id: state.stuId, scenario_id: state.scenarioId, step: `step${state.step}` };
+            if (state.step === 1) {
+                new FormData(document.getElementById('form-step1')).forEach((v, k) => data[k] = v);
+            } else if (state.step === 3) {
+                new FormData(document.getElementById('form-confirm')).forEach((v, k) => data[k] = v);
+            }
+            try { await fetch('../api/public/save_response.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); } catch (e) {}
+        }
+
+        window.addEventListener('scroll', () => {
+            const scrollPos = window.scrollY + window.innerHeight * 0.85;
+            for(let i=1; i<=4; i++) {
+                const img = document.getElementById(`s-img-${i}`);
+                if (img && img.offsetTop < scrollPos && !img.classList.contains('visible')) {
+                    setTimeout(() => { img.classList.add('visible'); }, (i-1) * 800);
+                }
+            }
+        });
+
+        document.getElementById('send-chat').onclick = async () => {
+            const input = document.getElementById('chat-input'), text = input.value.trim();
+            if (!text) return;
+            state.lastInputTime = Date.now();
+            appendMsg('user', text);
+            input.value = '';
+            const config = state.scenarioConfig[state.scenarioId - 1];
+            const aiType = config.f;
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentSid = urlParams.get('sid') || localStorage.getItem('sid');
+            try {
+                const res = await fetch('../api/public/chat.php', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stu_id: state.stuId, sid: currentSid, scenario_id: state.scenarioId, step: `step${state.step}`, ai_type: aiType, message: text })
+                });
+                const result = await res.json();
+                if (result && result.response) {
+                    appendMsg('ai', result.response); 
+                }
+                state.lastInputTime = Date.now();
+            } catch(e) { 
+                appendMsg('ai', '抱歉，我現在無法回應，請檢查網路連接。'); 
+            }
+        };
+
+        function appendMsg(role, text) {
+            const box = document.getElementById('chat-history'), div = document.createElement('div');
+            if (box) {
+                div.className = `chat-msg msg-${role}`;
+                div.innerText = text;
+                box.appendChild(div);
+                box.scrollTop = box.scrollHeight;
+            }
+        }
+
+        async function runEvaluation() {
+            // 先清空舊內容，避免顯示上一題的評分
+            document.getElementById('score-content').innerHTML = `
+                <div class="uk-text-center">
+                    <div uk-spinner></div>
+                    <p>情境 ${state.scenarioId} 評分計算中，請稍候...</p>
+                </div>`;
+            
+            try {
+                const res = await fetch('../api/public/evaluate.php', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stu_id: state.stuId, scenario_id: state.scenarioId })
+                });
+                const r = await res.json();
+                document.getElementById('score-content').innerHTML = `
+                    <div class='uk-alert-primary' uk-alert>
+                        <h4 class='uk-text-bold'>情境 ${state.scenarioId} 評分結果</h4>
+                        <p><strong>總分：${r.total_score}</strong></p>
+                        <hr>
+                        <p><b>認知能力分析：</b><br>${r.cognitive_comment}</p>
+                        <p><b>決策能力評論：</b><br>${r.decision_comment}</p>
+                        <p><b>互動過程評論：</b><br>${r.interaction_comment}</p>
+                    </div>`;
+            } catch(e) { 
+                document.getElementById('score-content').innerHTML = "<p class='uk-text-danger'>評分讀取失敗，請檢查網路連接。</p>"; 
+            }
+        }
+
+        const nextBtn = document.getElementById('next-btn');
+        if (nextBtn) {
+            nextBtn.onclick = autoSubmitAndNext;
+        }
+
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const forceScenario = urlParams.get('force_scenario');
+            const forceStep = urlParams.get('force_step');
+            const savedScenario = localStorage.getItem('resume_scenario');
+            const savedStep = localStorage.getItem('resume_step');
+
+            // 特定學生名單 (學號)
+            const targetStudents = ['112001', '112002', '112003']; 
+            
+            if (urlParams.get('stu_id')) {
+                state.stuId = urlParams.get('stu_id');
+            }
+
+            // 處理接續邏輯
+            if (forceScenario) {
+                // 如果是從登入頁傳來的接續請求 (存 3 做 4)
+                let fs = parseInt(forceScenario, 10);
+                state.scenarioId = fs + 1;
+                if (state.scenarioId > 8) state.scenarioId = 8;
+                state.step = 1;
+                state.isResuming = true;
+            } else if (savedScenario) {
+                state.scenarioId = parseInt(savedScenario, 10);
+                state.step = parseInt(savedStep, 10) || 1;
+                state.isResuming = true;
+            }
+
+            // 特定學生強制跳轉到第 5 題 (僅在他們進度小於 5 時觸發)
+            if (targetStudents.includes(state.stuId) && state.scenarioId < 5) {
+                state.scenarioId = 5;
+                state.step = 1;
+            }
+
+            if (forceStep) {
+                state.step = parseInt(forceStep, 10);
+            }
+
+            if (state.step === 1 || !state.step) {
+                state.step = 1;
+            }
+
+            setTimeout(() => {
+                initStep();
+            }, 50);
+        };
+    </script>
+</body>
+</html>

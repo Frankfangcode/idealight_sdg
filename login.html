@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zxx">
+
+<head>
+  <meta charset="utf-8">
+  <title>Home page</title>
+  <meta content="Chernyh Mihail" name="author">
+  <meta content="GetRider" name="description">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="HandheldFriendly" content="true">
+  <meta name="format-detection" content="telephone=no">
+  <meta content="IE=edge" http-equiv="X-UA-Compatible">
+  <link rel="stylesheet" href="../assets/css/uikit.min.css">
+  <link rel="stylesheet" href="assets/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/datepicker.min.css">
+  <link rel="stylesheet" href="assets/css/main.css">
+</head>
+
+<body class="page-home">
+    
+  <div id="page-preloader"><span class="spinner border-t_second_b border-t_prim_a"></span></div>
+  <div class="page-wrapper">
+    <div id="header"></div>
+    <div id="offcanvas-container"></div>
+
+    <main class="page-main">
+      <div class="section-banner">
+        <div class="section-banner__bg">
+          <div class="uk-cover-container"><img src="assets/img/img-banner.jpg" alt="img-banner" data-uk-cover><canvas></canvas></div>
+        </div>
+        <div class="section-banner__content uk-text-center">
+          <div class="uk-overlay uk-position-center-left uk-width-1-1">
+            <div class="uk-container uk-width-1-1">
+              <div class="section-banner__title"><span>YehLab SDG</span>
+                <h3 class="decor-top">請同學們註冊並登入後</br>再開始進行測驗</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="contacts-info-map-and-form">
+        <div class="uk-grid uk-child-width-1-2@m uk-grid-collapse uk-section" data-uk-grid>
+          <div>
+            <div class="contacts-info-form">
+              <div class="contacts-info-form__title">登入</div>
+              <div class="contacts-info-form__text">請輸入您的學號與姓名</div>
+
+              <form method="POST" action="/api/public/login.php" id="loginForm">
+                <div class="uk-grid uk-grid-small uk-child-width-1-2@s" data-uk-grid>
+                  <div><input class="uk-input" type="text" name="ID" placeholder="學號" required></div>
+                  <div><input class="uk-input" type="text" name="name" placeholder="姓名" required></div>
+                  <div>
+                    <button class="uk-button uk-button-danger uk-button-large" type="submit">登入</button>
+                    <button class="uk-button uk-button-secondary uk-button-large" id="logoutBtn" style="display: none;">登出</button>
+                  </div>
+                </div>
+              </form>
+
+            </div>
+          </div>
+          <div class="uk-flex-first@m">
+            <div class="contacts-info-map"><img src="assets/img/img-banner.jpg" alt="img-banner" style="width:100%; height:100%; object-fit:cover;"></div>
+          </div>
+        </div>
+      </div>
+      
+    </main>
+    
+    <div id="footer"></div>
+  </div>
+  <script src="assets/js/jquery.min.js"></script>
+  <script src="assets/js/uikit.min.js"></script>
+  <script src="assets/js/uikit-icons.min.js"></script>
+  <script src="assets/js/datepicker.min.js"></script>
+  <script src="assets/js/i18n/datepicker.en.js"></script>
+  <script src="assets/js/main.js"></script>
+
+  <script>
+  fetch('/components/header.html')
+  .then(res => res.text())
+  .then(html => {
+    document.getElementById('header').innerHTML = html;
+
+    const logoutBtn = document.getElementById("logoutBtn");
+    const loginBtn = document.getElementById("loginBtn");
+    const name = localStorage.getItem("stu_name");
+    const nameEl = document.getElementById("studentName");
+
+    if (name) {
+      if (logoutBtn) logoutBtn.style.display = "inline-block";
+      if (loginBtn) loginBtn.style.display = "none";
+      if (nameEl) nameEl.textContent = name;
+    } else {
+      if (logoutBtn) logoutBtn.style.display = "none";
+      if (loginBtn) loginBtn.style.display = "inline-block";
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("stu_name");
+        window.location.href = "login.html";
+      });
+    }
+  });
+
+  fetch('/components/offcanvas.html')
+  .then(res => res.text())
+  .then(html => {
+    document.getElementById('offcanvas-container').innerHTML = html;
+
+    const logoutBtn = document.getElementById("logoutBtnMobile");
+    const loginBtn = document.getElementById("loginBtnMobile");
+    const name = localStorage.getItem("stu_name");
+    const nameEl = document.getElementById("studentName");
+
+    if (name) {
+      if (logoutBtn) logoutBtn.style.display = "inline-block";
+      if (loginBtn) loginBtn.style.display = "none";
+      if (nameEl) nameEl.textContent = name;
+    } else {
+      if (logoutBtn) logoutBtn.style.display = "none";
+      if (loginBtn) loginBtn.style.display = "inline-block";
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("stu_name");
+        window.location.href = "login.html";
+      });
+    }
+  });
+
+  fetch('/components/footer.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('footer').innerHTML = html;
+  });
+  
+  document.getElementById("loginForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch("/api/public/login.php", { method: "POST", body: formData })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          localStorage.setItem("stu_name", data.name);
+          localStorage.setItem("stu_id", data.id);
+          localStorage.setItem("group", data.group);
+
+          const dbScenario = data.current_scenario;
+          const dbStep = data.current_step || "1"; 
+
+          let sid = localStorage.getItem("sid");
+          if (!sid) {
+            sid = `${data.id}_${Math.random().toString(36).slice(2)}`;
+            localStorage.setItem("sid", sid);
+          }
+
+          // 【資料庫分流與路徑修正】
+          if (dbScenario && parseInt(dbScenario, 10) > 1) {
+            alert(`偵測到您有未完成的測驗（第 ${dbScenario} 題），即將為您回復進度！`);
+            // 修正路徑補上 control/，精確引導直達測驗頁，完全跳過知情同意書
+            location.href = `control/experiment.html?sid=${encodeURIComponent(sid)}&group=${data.group}&force_scenario=${dbScenario}&force_step=${dbStep}`; 
+          } else {
+            // 沒有紀錄的老學生或完全新進來的學生，才走傳統流程去知情同意書
+            location.href = `control/consent.html?sid=${encodeURIComponent(sid)}&group=${data.group}`;
+          }
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(err => {
+        alert(err.message || "系統忙線中，請稍後再試");
+      });
+  });
+
+  </script>
+
+</body>
+
+</html>

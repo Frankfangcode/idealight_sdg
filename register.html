@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zxx">
+
+<head>
+  <meta charset="utf-8">
+  <title>Home page</title>
+  <meta content="Chernyh Mihail" name="author">
+  <meta content="GetRider" name="description">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="HandheldFriendly" content="true">
+  <meta name="format-detection" content="telephone=no">
+  <meta content="IE=edge" http-equiv="X-UA-Compatible">
+  <link rel="stylesheet" href="assets/css/uikit.min.css">
+  <link rel="stylesheet" href="assets/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/datepicker.min.css">
+  <link rel="stylesheet" href="assets/css/main.css">
+</head>
+
+<body class="page-home">
+    
+  <!-- Loader-->
+  <div id="page-preloader"><span class="spinner border-t_second_b border-t_prim_a"></span></div>
+  <!-- Loader end-->
+
+  <div id="header"></div>
+  <div id="offcanvas-container"></div>
+    
+  <div class="page-wrapper">
+    
+    <main class="page-main">
+      <div class="section-banner">
+        <div class="section-banner__bg">
+          <div class="uk-cover-container"><img src="assets/img/img-banner.jpg" alt="img-banner" data-uk-cover><canvas></canvas></div>
+        </div>
+        <div class="section-banner__content uk-text-center">
+          <div class="uk-overlay uk-position-center-left uk-width-1-1">
+            <div class="uk-container uk-width-1-1">
+              <div class="section-banner__title"><span>YehLab SDG</span>
+                <h3 class="decor-top">請同學們註冊並登入後</br>再開始進行測驗</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="contacts-info-map-and-form">
+        <div class="uk-grid uk-child-width-1-2@m uk-grid-collapse uk-section" data-uk-grid>
+          <div>
+            <div class="contacts-info-form">
+              <div class="contacts-info-form__title">註冊</div>
+              <div class="contacts-info-form__text">請輸入您的學號與姓名</div>
+
+              <form method="POST" action="/api/public/register.php">
+                <div class="uk-grid uk-grid-small uk-child-width-1-2@s" data-uk-grid>
+                  <div><input class="uk-input" type="text" name="ID" placeholder="學號" required></div>
+                  <div><input class="uk-input" type="text" name="name" placeholder="姓名" required></div>          
+                  <div>
+                    <select class="uk-select" name="gender" required>
+                      <option value="">請選擇性別</option>
+                      <option value="1">男</option>
+                      <option value="2">女</option>
+                    </select>
+                  </div>
+                  <div><input class="uk-input" type="text" name="age" placeholder="年齡(整數)" required></div>
+                  <div class="uk-width-1-1 uk-margin-top uk-flex uk-flex-wrap uk-flex-middle">
+                    <button class="uk-button uk-button-danger uk-button-large uk-margin-small-right uk-margin-small-bottom" type="submit">註冊</button>
+
+                    <a class="uk-button uk-button-secondary uk-button-large uk-margin-small-bottom" href="login.html">
+                    <span>已經註冊？接續作答</span>
+                    </a>
+
+                    <!-- <a class="uk-button uk-button-secondary uk-button-large" href="login.html"><span>登入</span></a> -->
+                  </div>
+                </div>
+              </form>
+
+            </div>
+          </div>
+          <div class="uk-flex-first@m">
+            <div class="contacts-info-map"><img src="assets/img/img-banner.jpg" alt="img-banner" style="width:100%; height:100%; object-fit:cover;"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div id="footer"></div>
+  </div>
+  <script src="assets/js/jquery.min.js"></script>
+  <script src="assets/js/uikit.min.js"></script>
+  <script src="assets/js/uikit-icons.min.js"></script>
+  <script src="assets/js/datepicker.min.js"></script>
+  <script src="assets/js/i18n/datepicker.en.js"></script>
+  <script src="assets/js/main.js"></script>
+
+  <script>
+  fetch('/components/header.html')
+  .then(res => res.text())
+  .then(html => {
+    document.getElementById('header').innerHTML = html;
+
+    const logoutBtn = document.getElementById("logoutBtn");
+    const loginBtn = document.getElementById("loginBtn");
+    const name = localStorage.getItem("stu_name");
+    const nameEl = document.getElementById("studentName");
+
+    if (name) {
+      if (logoutBtn) logoutBtn.style.display = "inline-block";
+      if (loginBtn) loginBtn.style.display = "none";
+      if (nameEl) nameEl.textContent = name;
+    } else {
+      if (logoutBtn) logoutBtn.style.display = "none";
+      if (loginBtn) loginBtn.style.display = "inline-block";
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("stu_name");
+        window.location.href = "login.html";
+      });
+    }
+  });
+
+  fetch('/components/offcanvas.html')
+  .then(res => res.text())
+  .then(html => {
+    document.getElementById('offcanvas-container').innerHTML = html;
+
+    const logoutBtn = document.getElementById("logoutBtnMobile");
+    const loginBtn = document.getElementById("loginBtnMobile");
+    const name = localStorage.getItem("stu_name");
+    const nameEl = document.getElementById("studentName");
+
+    if (name) {
+      if (logoutBtn) logoutBtn.style.display = "inline-block";
+      if (loginBtn) loginBtn.style.display = "none";
+      if (nameEl) nameEl.textContent = name;
+    } else {
+      if (logoutBtn) logoutBtn.style.display = "none";
+      if (loginBtn) loginBtn.style.display = "inline-block";
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("stu_name");
+        window.location.href = "login.html"; // 或 location.reload(); 看你要回首頁還是重新整理
+      });
+    }
+  });
+
+  fetch('/components/footer.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('footer').innerHTML = html;
+  });
+  </script>
+</body>
+
+</html>

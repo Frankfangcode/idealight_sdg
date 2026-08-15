@@ -1,0 +1,14 @@
+api/src/db.php
+
+.env
+.env.*
+
+*.log
+
+.DS_Store
+Thumbs.db
+
+.vscode/
+
+node_modules/
+vendor/

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="utf-8">
+  <title>實驗流程說明</title>
+  <meta content="Chernyh Mihail" name="author">
+  <meta content="GetRider" name="description">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="HandheldFriendly" content="true">
+  <meta name="format-detection" content="telephone=no">
+  <meta content="IE=edge" http-equiv="X-UA-Compatible">
+  <link rel="stylesheet" href="../assets/css/uikit.min.css">
+  <link rel="stylesheet" href="../assets/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/datepicker.min.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+
+<body class="page-home">
+  <!-- Loader-->
+  <div id="page-preloader"><span class="spinner border-t_second_b border-t_prim_a"></span></div>
+  <!-- Loader end-->
+    
+  <div class="page-wrapper">
+    <div id="header"></div>
+    <div id="offcanvas-container"></div>
+
+    <main class="page-main">
+       <div class="uk-section uk-container uk-container-small">
+        <h2 class="uk-heading-bullet">《情境示意圖》</h2>
+
+        <div class="uk-text-center uk-margin">
+          <img src="../assets/img/scenarios/pp1.png">
+          <img src="../assets/img/scenarios/pp2.png">
+          <img src="../assets/img/scenarios/pp3.png">
+          <img src="../assets/img/scenarios/pp4.png">
+          <img src="../assets/img/scenarios/p0.png">
+        </div>
+
+        <h2 class="uk-heading-bullet">《永續生活提案GO》</h2>
+        <div class="uk-card uk-card-default uk-card-body uk-margin">
+          <p>你是一位關注永續議題的大學生，身邊有八位關係非常好的朋友。某天，你們在校園角落看到一張「永續生活提案」比賽海報，冠軍獎金高達十萬元。大家對這個數字產生了高度興趣（有些人甚至已經開始默默規劃要怎麼花）。</br></br>
+              過去你們曾經合作參賽，因此這次很自然地又組成九人團隊準備挑戰。但由於大家來自不同科系、行程滿檔，每次開會總是有人缺席，討論過程偶爾會變成意見交鋒現場。</br></br>
+              接下來將出現一連串的討論情境（共八個）。</br>
+              在每個情境中，你都需要在不同聲音之間做出判斷，並表達你的看法。
+          </p>
+        </div>
+
+        <!-- <h2 class="uk-heading-bullet">你準備好了嗎？</h2> -->
+
+        <div class="uk-margin">
+        <button id="start-btn" class="uk-button uk-button-danger uk-button-large">
+          開始作答！
+        </button>
+        </div>
+      </div>
+    </main>
+
+    <div id="footer"></div>
+  </div>
+
+  <script src="../assets/js/jquery.min.js"></script>
+  <script src="../assets/js/uikit.min.js"></script>
+  <script src="../assets/js/uikit-icons.min.js"></script>
+  <script src="../assets/js/datepicker.min.js"></script>
+  <script src="../assets/js/i18n/datepicker.en.js"></script>
+  <script src="../assets/js/main.js"></script>
+
+  <!-- 常用script -->
+  <script src="../assets/js/normal.js"></script>
+
+  <!-- 01. 知情同意書 -->
+
+    <script>
+        const btn = document.getElementById('start-btn');
+
+        btn.onclick = () => {
+            window.location.href = 'experiment.html';
+        };
+    </script>
+
+</body>
+
+</html>

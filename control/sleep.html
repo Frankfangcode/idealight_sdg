@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="utf-8">
+  <title>後測問卷</title>
+  <meta content="Chernyh Mihail" name="author">
+  <meta content="GetRider" name="description">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="HandheldFriendly" content="true">
+  <meta name="format-detection" content="telephone=no">
+  <meta content="IE=edge" http-equiv="X-UA-Compatible">
+  <link rel="stylesheet" href="../assets/css/uikit.min.css">
+  <link rel="stylesheet" href="../assets/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/datepicker.min.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+
+<body class="page-home">
+  <!-- Loader-->
+  <div id="page-preloader"><span class="spinner border-t_second_b border-t_prim_a"></span></div>
+  <!-- Loader end-->
+    
+  <div class="page-wrapper">
+    <div id="header"></div>
+    <div id="offcanvas-container"></div>
+
+    
+     <main class="page-main"> 
+     <div class="section-banner">
+            <div class="section-banner__bg">
+                <div class="uk-cover-container"><img src="../assets/img/img-banner-blog-2.jpg" alt="img-banner" data-uk-cover><canvas ></canvas></div>
+            </div>
+            <div class="section-banner__content">
+                <div class="uk-overlay uk-position-center-left uk-width-1-1">
+                    <div class="uk-container uk-width-1-1">
+                        <div class="section-banner__title">
+                            <h1>中場休息 take a break</h1>
+                        </div>
+                        <div class="section-banner__text decor-bottom">請同學休息五分鐘後再繼續填答，<br>感謝您的參與。</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        
+        <div class="page-content page-content--article">
+            <article class="article-full">
+                <div class="uk-section-small uk-container uk-container-small">
+                    <div class="article-full__content">
+                         <p>點擊下方按鈕繼續填答。</p>
+                          <button id="start-btn" class="uk-button uk-button-danger uk-button-large" disabled>
+                            點我繼續
+                          </button>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <div id="footer"></div>
+  </div>
+
+  <script src="../assets/js/jquery.min.js"></script>
+  <script src="../assets/js/uikit.min.js"></script>
+  <script src="../assets/js/uikit-icons.min.js"></script>
+  <script src="../assets/js/datepicker.min.js"></script>
+  <script src="../assets/js/i18n/datepicker.en.js"></script>
+  <script src="../assets/js/main.js"></script>
+
+  <!-- 常用script -->
+  <script src="../assets/js/normal.js"></script>
+
+<script>
+
+let remaining = 300;
+
+const btn = document.getElementById('start-btn');
+
+btn.innerText = `請休息 05:00`;
+
+const timer = setInterval(() => {
+
+    remaining--;
+
+    const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const s = String(remaining % 60).padStart(2, '0');
+
+    btn.innerText = `請休息 ${m}:${s}`;
+
+    if (remaining <= 0) {
+
+        clearInterval(timer);
+
+        btn.disabled = false;
+        btn.innerText = '點我繼續';
+
+    }
+
+}, 1000);
+
+btn.addEventListener('click', () => {
+
+    if (!btn.disabled) {
+
+        window.location.href = 'experiment.html';
+
+    }
+
+});
+
+</script>
+
+</body>
+
+</html>

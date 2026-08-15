@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="utf-8">
+  <title>知情同意書</title>
+  <meta content="Chernyh Mihail" name="author">
+  <meta content="GetRider" name="description">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="HandheldFriendly" content="true">
+  <meta name="format-detection" content="telephone=no">
+  <meta content="IE=edge" http-equiv="X-UA-Compatible">
+  <link rel="stylesheet" href="../assets/css/uikit.min.css">
+  <link rel="stylesheet" href="../assets/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/datepicker.min.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+</head>
+
+<body class="page-home">
+  <!-- Loader-->
+  <div id="page-preloader"><span class="spinner border-t_second_b border-t_prim_a"></span></div>
+  <!-- Loader end-->
+    
+  <div class="page-wrapper">
+    <div id="header"></div>
+    <div id="offcanvas-container"></div>
+
+    <main class="page-main">
+      <!-- 01. 知情同意書 -->
+      <!-- <div id="consent"></div> -->
+       <div class="uk-section uk-container uk-container-small">
+        <h2 class="uk-heading-bullet">實驗說明與受試者同意書</h2>
+
+        <div class="uk-card uk-card-default uk-card-body uk-margin">
+         <p>歡迎您參與這個實驗，實驗時間(含準備、休息、領取禮券)約90-100分鐘。</p>
+        
+        <!--<p>本研究旨在了解同學面對 SDGs 議題之創意思考與解決方案發想。全程約 90 分鐘，資料僅供學術研究並採去識別化處理；參與完全自願，您可隨時退出而不影響任何學業權益。</p>
+        <ul class="uk-list uk-list-bullet">
+            <li>研究資料僅作統計分析與學術用途，不對外揭露個資。</li>
+            <li>若對研究有疑問，可與研究團隊聯繫。</li>
+        </ul>-->
+        </div>
+
+        <div class="uk-text-center uk-margin">
+          <img src="../assets/img/scenarios/f1.png" alt="con"> 
+          <!-- <img src="../assets/img/info/ic1.jpg" alt="informed-consent-p1">
+          <img src="../assets/img/info/ic2.jpg" alt="informed-consent-p2">
+          <img src="../assets/img/info/ic3.jpg" alt="informed-consent-p3"> -->
+        </div>
+
+        <label class="uk-margin">
+        <input id="agree" class="uk-checkbox" type="checkbox" />
+          我已閱讀並同意上述內容。
+        </label>
+
+        <div class="uk-margin">
+        <button id="start-btn" class="uk-button uk-button-danger uk-button-large" disabled>
+          觀看範例說明
+        </button>
+        </div>
+      </div>
+    </main>
+
+    <div id="footer"></div>
+  </div>
+
+  <script src="../assets/js/jquery.min.js"></script>
+  <script src="../assets/js/uikit.min.js"></script>
+  <script src="../assets/js/uikit-icons.min.js"></script>
+  <script src="../assets/js/datepicker.min.js"></script>
+  <script src="../assets/js/i18n/datepicker.en.js"></script>
+  <script src="../assets/js/main.js"></script>
+
+  <!-- 常用script -->
+  <script src="../assets/js/normal.js"></script>
+
+  <!-- 01. 知情同意書 -->
+
+    <script>
+        const checkbox = document.getElementById('agree');
+        const btn = document.getElementById('start-btn');
+        
+        checkbox.onchange = () => {
+            btn.disabled = !checkbox.checked;
+        };
+
+        btn.onclick = () => {
+            window.location.href = 'flow.html';
+            // window.location.href = 'experiment.html';
+        };
+    </script>
+
+</body>
+
+</html>
