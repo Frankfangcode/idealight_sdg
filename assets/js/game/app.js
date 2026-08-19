@@ -1220,12 +1220,14 @@
         render();
         break;
       case 'submitEvidence':
+        /* goPhase 內部也走 guard；不能包在同一個 guard 裡，busy 旗標會擋掉自己 */
         guard(async () => {
           await CK.submitEvidence(level().no, L.placements);
           L.evidenceSubmitted = true;
           toast('分類已提交並鎖定');
-          await goPhase('ranking');
-        }, '提交失敗');
+        }, '提交失敗').then((ok) => {
+          if (ok) goPhase('ranking');
+        });
         break;
 
       /* ---- 判斷階段的回顧 ---- */
@@ -1260,12 +1262,14 @@
         openConfirm();
         break;
       case 'doSubmit':
+        /* 同 submitEvidence：goPhase 要在 guard 結束後才能呼叫 */
         guard(async () => {
           await CK.submitJudgment(level().no, L.pick, L.reason);
           L.rankingSubmitted = true;
           closeModal();
-          await goPhase('feedback');
-        }, '送出失敗');
+        }, '送出失敗').then((ok) => {
+          if (ok) goPhase('feedback');
+        });
         break;
       case 'closeModal':
         closeModal();
