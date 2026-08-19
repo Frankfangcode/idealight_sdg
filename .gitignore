@@ -1,7 +1,6 @@
-api/src/db.php
-
 .env
 .env.*
+!.env.example
 
 *.log
 

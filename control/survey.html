@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>問卷｜消失的月蝕巧克力莓果千層蛋糕</title>
+    <link rel="stylesheet" href="../assets/css/game/tokens.css" />
+    <link rel="stylesheet" href="../assets/css/game/app.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="topbar__brand"><span class="topbar__title" id="brandTitle">問卷</span></div>
+        <div class="topbar__spacer"></div>
+        <div class="topbar__right" id="topbarRight"></div>
+      </header>
+
+      <main class="main main--wide" id="main" tabindex="-1"></main>
+    </div>
+
+    <script src="../assets/js/game/api.js"></script>
+    <script>
+      /* 前測／後測問卷頁。
+         問卷本體在 SurveyCake，以 iframe 內嵌在頁面上（與既有的 finish.html 同作法）。
+         這一頁負責三件事：
+           1. 把學號掛進問卷網址 —— SurveyCake 用隱藏題接住，事後匯出的問卷資料
+              才能以 stu_id 跟本系統的作答合併。
+           2. 記錄開啟與完成的時間點（寫進 ck_surveys）。
+           3. 完成後導向下一步。
+
+         kind=pre  → 完成後進入遊戲
+         kind=post → 完成後進入結束頁
+
+         注意：跨網域的 iframe 無法偵測受試者是否真的按了送出，
+         所以完成與否只能由受試者自行回報。這是 SurveyCake 內嵌的固有限制。
+      */
+      (function () {
+        'use strict';
+
+        const $ = (s) => document.querySelector(s);
+        const esc = (s) =>
+          String(s).replace(/[&<>"']/g, (m) =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])
+          );
+
+        const kind = new URLSearchParams(location.search).get('kind') === 'post' ? 'post' : 'pre';
+        const isPre = kind === 'pre';
+        const label = isPre ? '前測問卷' : '後測問卷';
+        const nextLabel = isPre ? '填答完成，開始調查' : '填答完成，結束實驗';
+
+        function paint(inner) {
+          $('#brandTitle').textContent = label;
+          $('#main').innerHTML = inner;
+        }
+
+        function next() {
+          location.href = isPre ? 'game.html' : 'finish.html';
+        }
+
+        function render(info) {
+          if (!info.configured) {
+            paint(`
+              <div class="stack stack--lg">
+                <div class="note note--warn"><span><strong>問卷尚未設定　</strong>${esc(info.message || '')}
+                  請施測人員在專案根目錄的 <code>.env</code> 填入
+                  <code>${isPre ? 'SURVEYCAKE_PRE_URL' : 'SURVEYCAKE_POST_URL'}</code>，
+                  值就是 SurveyCake 的公開作答網址。</span></div>
+                <div class="row" style="justify-content:center">
+                  <button class="btn btn--ghost btn--lg" id="skip">先跳過，${
+                    isPre ? '直接開始調查' : '結束'
+                  }</button>
+                </div>
+              </div>
+            `);
+            $('#skip').onclick = next;
+            return;
+          }
+
+          if (info.completed) {
+            paint(`
+              <div class="stack stack--lg">
+                <div class="note"><span>你已經完成${esc(label)}。</span></div>
+                <div class="row" style="justify-content:center">
+                  <button class="btn btn--primary btn--lg" id="go">${
+                    isPre ? '開始調查' : '結束'
+                  }</button>
+                </div>
+              </div>
+            `);
+            $('#go').onclick = next;
+            return;
+          }
+
+          paint(`
+            <div class="stack stack--lg">
+              <div class="note"><span>請完成下面的${esc(label)}。
+                填完並在問卷中按下送出後，再按頁面最下方的「${esc(nextLabel)}」。</span></div>
+
+              <iframe title="${esc(label)}" src="${esc(info.url)}"
+                width="100%" height="700"
+                style="border:1px solid var(--line, #ddd);border-radius:8px;background:#fff"
+                allowtransparency="true"></iframe>
+
+              <div class="row" style="justify-content:center">
+                <button class="btn btn--primary btn--lg" id="done">${esc(nextLabel)}</button>
+              </div>
+              <p class="small muted center">
+                系統無法自動偵測問卷是否送出，請確認已在上方問卷按下送出再繼續。
+              </p>
+            </div>
+          `);
+
+          $('#done').addEventListener('click', async () => {
+            const btn = $('#done');
+            btn.disabled = true;
+            try {
+              await CK.completeSurvey(kind);
+              next();
+            } catch (e) {
+              btn.disabled = false;
+              alert(`回報失敗：${e.message}`);
+            }
+          });
+        }
+
+        (async function boot() {
+          paint('<p class="small muted center" style="padding:var(--sp-8)">載入中…</p>');
+          try {
+            render(await CK.survey(kind));
+          } catch (e) {
+            paint(`<div class="note note--warn"><span>載入失敗：${esc(e.message)}</span></div>`);
+          }
+        })();
+      })();
+    </script>
+  </body>
+</html>

@@ -85,8 +85,11 @@
         };
 
         btn.onclick = () => {
-            window.location.href = 'flow.html';
-            // window.location.href = 'experiment.html';
+            // cake 流程：知情同意 → 前測問卷 → 六關遊戲 → 真相 → debriefing → 後測問卷
+            // 舊的 SDG 流程走 flow.html（《永續生活提案GO》的流程說明），
+            // 那一頁的內容不適用於本實驗，故略過。
+            window.location.href = 'survey.html?kind=pre';
+            // window.location.href = 'flow.html';
         };
     </script>
 

@@ -159,11 +159,21 @@
             localStorage.setItem("sid", sid);
           }
 
-          // 【資料庫分流與路徑修正】
-          if (dbScenario && parseInt(dbScenario, 10) > 1) {
+          // ===================================================================
+          // 要跑哪一個實驗。改這一個值就切換，兩套流程都保留著。
+          //   'cake' 消失的月蝕巧克力莓果千層蛋糕（六關批判思考）
+          //   'sdg'  SDG 認知偏誤（八情境 + AI 對話）
+          // ===================================================================
+          const EXPERIMENT = 'cake';
+
+          if (EXPERIMENT === 'cake') {
+            // 進度存在後端（ck_progress），續跑由 game.html 自己向 API 還原，
+            // 所以這裡不需要用網址參數帶進度。先走知情同意書。
+            location.href = `control/consent.html?sid=${encodeURIComponent(sid)}&group=${data.group}`;
+          } else if (dbScenario && parseInt(dbScenario, 10) > 1) {
             alert(`偵測到您有未完成的測驗（第 ${dbScenario} 題），即將為您回復進度！`);
             // 修正路徑補上 control/，精確引導直達測驗頁，完全跳過知情同意書
-            location.href = `control/experiment.html?sid=${encodeURIComponent(sid)}&group=${data.group}&force_scenario=${dbScenario}&force_step=${dbStep}`; 
+            location.href = `control/experiment.html?sid=${encodeURIComponent(sid)}&group=${data.group}&force_scenario=${dbScenario}&force_step=${dbStep}`;
           } else {
             // 沒有紀錄的老學生或完全新進來的學生，才走傳統流程去知情同意書
             location.href = `control/consent.html?sid=${encodeURIComponent(sid)}&group=${data.group}`;
