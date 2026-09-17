@@ -57,7 +57,8 @@
       expanded: {},
       reason: '',
       rankingSubmitted: false,
-      phaseIndex: 0,
+      phaseIndex: 0, // 目前正在看的階段
+      maxPhaseIndex: 0, // 實際走到的最遠階段；回頭瀏覽不會倒退，只有這個變大才需要通知後端
       timeLeft: {},
       timedOut: {},
     };
@@ -90,6 +91,7 @@
 
     const idx = PHASES.indexOf(s.progress.phase);
     L.phaseIndex = idx < 0 ? 0 : idx;
+    L.maxPhaseIndex = L.phaseIndex;
 
     /* 訊問紀錄：伺服器記的是問了誰與哪一題，回答內容一併帶回來 */
     L.asked = {};
@@ -161,6 +163,13 @@
   const level = () => SCENARIO.levels[state.levelIndex];
   const lv = () => state.levels[state.levelIndex];
   const phase = () => PHASES[lv().phaseIndex];
+  /* 最遠進度；?? 是為了相容舊 sessionStorage 裡沒有 maxPhaseIndex 的存檔 */
+  const reachedIndex = () => {
+    const L = lv();
+    return Math.max(L.maxPhaseIndex ?? 0, L.phaseIndex);
+  };
+  /* 回顧模式：正在看已經走過的階段。只能瀏覽，不能作答、不倒數計時 */
+  const isReview = () => lv().phaseIndex < reachedIndex();
   const charOf = (key) => SCENARIO.characters.find((c) => c.key === key);
   /* 組別由 students.`group` 決定並在 ck_runs 凍結，受試者不能自選。
      訊問回答的詳細度不再依組別變動 —— 那是 demo 為了展示四種組合而做的，
@@ -298,15 +307,21 @@
 
   /* ------------------------------------------------------------- 流程 */
 
-  /* 階段推進同步寫進 ck_progress。後端只允許往前，且只能操作當前關卡。 */
+  /* 階段推進同步寫進 ck_progress。後端只允許往前，且只能操作當前關卡。
+     回頭瀏覽已走過的階段是純本地的視圖切換，不打後端也不動 maxPhaseIndex，
+     否則會出現「往回看一眼就把進度標記蓋掉、再往前又被後端 409 拒絕」的死結。 */
   async function goPhase(p) {
     const idx = PHASES.indexOf(p);
     if (idx < 0) return;
 
     const L = lv();
-    if (idx > L.phaseIndex) {
+    const reached = reachedIndex();
+    if (idx > reached) {
       const ok = await guard(() => CK.advance(level().no, p), '進度保存失敗');
       if (!ok) return;
+      L.maxPhaseIndex = idx;
+    } else {
+      L.maxPhaseIndex = reached;
     }
 
     L.phaseIndex = idx;
@@ -359,11 +374,14 @@
     }
     const p = phase();
     const total = phaseDuration(p);
-    const showTimer = total > 0 && !lv().timedOut[p];
+    const review = isReview();
+    const showTimer = total > 0 && !lv().timedOut[p] && !review;
     right.innerHTML = `
       <span class="badge badge--phase">${PHASE_META[p].label}</span>
       ${
-        showTimer
+        review
+          ? '<span class="badge">回顧中</span>'
+          : showTimer
           ? `<span class="timer" id="timer" data-state="ok" role="timer" aria-label="本階段剩餘時間">
                <span class="timer__text">${mmss(lv().timeLeft[p] ?? total)}</span>
                <span class="timer__bar"><span class="timer__fill" style="width:${
@@ -385,7 +403,7 @@
     }
     bar.hidden = false;
     const current = phase();
-    const reached = lv().phaseIndex;
+    const reached = reachedIndex();
     bar.innerHTML = TAB_PHASES.map((p) => {
       const i = PHASES.indexOf(p);
       const disabled = i > reached;
@@ -420,7 +438,8 @@
     }
 
     stopTicker();
-    if (state.screen === 'play' && phaseDuration(phase()) && !lv().timedOut[phase()]) startTicker();
+    /* 回顧舊階段時不倒數：計時只屬於最前緣的階段 */
+    if (state.screen === 'play' && phaseDuration(phase()) && !lv().timedOut[phase()] && !isReview()) startTicker();
 
   }
 
@@ -589,14 +608,19 @@
 
   function viewInterrogation() {
     const L = lv();
-    const locked = L.timedOut.interrogation || L.attemptsUsed >= MAX_INTERROGATIONS;
+    /* 回顧模式也上鎖：後端 ck_ask 只擋次數不擋階段，這裡不鎖的話
+       受試者可以進了證據牆再回頭補問，時間與階段資料就失真了 */
+    const review = isReview();
+    const locked = review || L.timedOut.interrogation || L.attemptsUsed >= MAX_INTERROGATIONS;
     const remaining = MAX_INTERROGATIONS - L.attemptsUsed;
 
     const suspects = KEYS.map((key) => {
       const asked = !!L.asked[key];
       const sel = L.selected === key;
+      /* 回顧模式反過來：問過的人可以點開重讀問答，沒問過的人沒東西可看 */
+      const disabled = review ? !asked : asked || (locked && !sel);
       return `<button class="suspect" data-action="pick" data-key="${key}"
-        aria-pressed="${sel}" ${asked || (locked && !sel) ? 'disabled' : ''}>
+        aria-pressed="${sel}" ${disabled ? 'disabled' : ''}>
         ${avatar(key)}${who(key)}
         ${asked ? '<span class="suspect__done" aria-label="已訊問">✓ 已問</span>' : ''}
       </button>`;
@@ -665,7 +689,11 @@
             ${
               locked
                 ? `<div class="note note--warn"><span><strong>不能夠再問。</strong>${
-                    L.timedOut.interrogation ? '訊問時間已到。' : `本關 ${MAX_INTERROGATIONS} 個人都問完了。`
+                    review
+                      ? '你已進入後面的階段，這裡只能回顧已送出的問答。'
+                      : L.timedOut.interrogation
+                      ? '訊問時間已到。'
+                      : `本關 ${MAX_INTERROGATIONS} 個人都問完了。`
                   }已送出的問題與回答會保留。</span></div>
                    <button class="btn btn--primary btn--block" data-action="toEvidence">進入證據牆</button>`
                 : `
@@ -697,7 +725,7 @@
 
   function viewEvidence() {
     const L = lv();
-    const locked = L.evidenceSubmitted || L.timedOut.evidence;
+    const locked = isReview() || L.evidenceSubmitted || L.timedOut.evidence;
     const placeOf = (key) => L.placements[key] || 'unclassified';
     const inZone = (z) => KEYS.filter((k) => placeOf(k) === z);
     const unclassified = inZone('unclassified');
@@ -1358,7 +1386,7 @@
 
     /* 證據牆 */
     const drop = ev.target.closest('[data-drop]');
-    if (drop && phase() === 'evidence' && !L.evidenceSubmitted && !L.timedOut.evidence) {
+    if (drop && phase() === 'evidence' && !isReview() && !L.evidenceSubmitted && !L.timedOut.evidence) {
       ev.preventDefault();
       L.placements[dragKey] = drop.dataset.drop;
       dragKey = null;
