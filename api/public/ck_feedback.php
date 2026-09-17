@@ -79,9 +79,13 @@ if ($aiResponse === null) {
         . "1. 針對學生選出「說法最不合理的人」的理由，評論他的推理品質——"
         . "重點是他有沒有指出該說法從哪一項觀察跳到哪一個結論，而不是他選了誰。\n"
         . "2. 若他只憑角色身分、說話語氣或直覺判斷，要明確指出這一點。\n"
-        . "3. 若他的證據牆分類與教師判定不符，挑最關鍵的一兩則說明差在哪裡。\n"
+        . "3. 證據牆分類對了幾則，一律以下面的【分類結果】為準，不要自己重新比對。"
+        . "全部相符時，不可以說他的分類有落差或需要改進；"
+        . "有不符時，只談【分類結果】列出的那幾則，挑最關鍵的一兩則說明差在哪裡。\n"
         . "4. 約 200-300 字，分 2-3 個短段落，語氣直接但不責備。\n"
-        . "5. 不要重述題目，也不要條列所有六個人。";
+        . "5. 不要重述題目，也不要條列所有六個人。\n"
+        . "6. 只用純文字。不要用 Markdown 或 LaTeX（例如 **粗體**、# 標題、\$\\rightarrow\$），"
+        . "畫面不會轉譯這些符號，學生會直接看到原始碼。";
 
     // 逾時提交可能沒選人、理由也可能空白。這時要讓 AI 知道是時間到，
     // 而不是把空白當成敷衍作答來評。
@@ -94,9 +98,22 @@ if ($aiResponse === null) {
         ? '【學生的理由】未填寫（時間到）'
         : "【學生的理由】\n{$judgment['reason']}";
 
+    // 對錯由程式算好直接給結論。改用較小的模型（gemma-4-26b-a4b）後實測，
+    // 讓它自己從對照表判斷時，六則全對也會寫出「你的分類與教師標準仍有落差」。
+    $wrong = [];
+    foreach ($feedback['testimonies'] as $key => $t) {
+        if (!(($evidence[$key]['isCorrect'] ?? false))) {
+            $wrong[] = $characters[$key] ?? $key;
+        }
+    }
+    $resultLine = $wrong
+        ? '六則中有 ' . count($wrong) . ' 則與教師判定不符：' . implode('、', $wrong)
+        : '六則全部與教師判定相符。';
+
     $user = "【本關總結提示】\n{$feedback['aiFeedbackOpening']}\n\n"
         . "【階段性結論】\n{$feedback['conclusion']}\n\n"
         . "【判定與學生分類對照】\n" . implode("\n", $lines) . "\n\n"
+        . "【分類結果】\n{$resultLine}\n\n"
         . $pickLine . "\n" . $reasonLine;
 
     // AI 掛掉或金鑰沒設定時，逐則對照的部分仍要照常顯示——
@@ -111,9 +128,15 @@ if ($aiResponse === null) {
         $aiResponse = null;
     }
 
+    // 規則 6 的保險：模型偶爾還是會吐 LaTeX 箭頭與 Markdown 粗體
+    if ($aiResponse !== null) {
+        $aiResponse = preg_replace('/\$\\\\(?:right|Right|long)?arrow\$/u', '→', $aiResponse);
+        $aiResponse = preg_replace('/\*\*(.+?)\*\*/u', '$1', $aiResponse);
+    }
+
     $pdo->prepare(
         'INSERT INTO ck_feedback (stu_id, level_no, prompt_version, ai_response) VALUES (?, ?, ?, ?)'
-    )->execute([$stuId, $levelNo, 'v1', $aiResponse]);
+    )->execute([$stuId, $levelNo, 'v2', $aiResponse]);
 }
 
 ck_log($stuId, $levelNo, 'feedback', 'view', ['cond' => 'experiment', 'aiOk' => $aiResponse !== null]);
