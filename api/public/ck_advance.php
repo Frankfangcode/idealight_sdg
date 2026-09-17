@@ -64,6 +64,8 @@ if ($toIdx <= $fromIdx) {
 }
 
 $pdo->prepare('UPDATE ck_progress SET phase = ? WHERE stu_id = ?')->execute([$toPhase, $stuId]);
+// 限時階段從進入的這一刻起算（不限時的階段這一行不做事）
+ck_timer_start($stuId, $levelNo, $toPhase);
 ck_log($stuId, $levelNo, $toPhase, 'phase_enter', ['from' => $current]);
 
 ck_json(['success' => true, 'levelNo' => $levelNo, 'phase' => $toPhase]);

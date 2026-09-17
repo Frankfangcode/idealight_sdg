@@ -1,10 +1,11 @@
 <?php
 /**
  * 遊戲狀態總入口。前端載入或重整時打這一支，拿回：
- *   - 公開設定（階段秒數、訊問上限、分類區文案、判斷題目、回顧範圍）
+ *   - 公開設定（階段秒數、訊問設定、分類區文案、判斷題目、回顧範圍）
  *   - 六個角色
  *   - 目前進度（關卡 + 階段）與該關內容
- *   - 該關已經做過的事（訊問紀錄、證據牆分類、判斷）
+ *   - 該關已經做過的事（訊問對話、證據牆分類、判斷）
+ *   - 目前階段的剩餘秒數（以伺服器記錄的起算時間為準）
  *
  * 最後一項是 demo 版做不到的：demo 狀態只在 sessionStorage，關掉分頁就沒了。
  */
@@ -40,16 +41,18 @@ $payload = [
 if (!$finished) {
     $payload['level'] = ck_level_payload($levelNo);
 
-    // 該關已訊問過誰、問了什麼、對方怎麼答（重整後要能還原訊問紀錄）
+    // 該關的訊問對話（重整後要能還原）。只回角色、發話方與內容，
+    // 不回 ai_ok / model / prompt_version 這些研究用欄位。
     $stmt = db()->prepare(
-        'SELECT i.char_key, q.id AS question_id, q.q, q.a, q.detail
-         FROM ck_interrogations i
-         JOIN ck_questions q ON q.id = i.question_id
-         WHERE i.stu_id = ? AND i.level_no = ?
-         ORDER BY i.asked_at'
+        'SELECT char_key, role, content FROM ck_chat_messages
+         WHERE stu_id = ? AND level_no = ? ORDER BY id'
     );
     $stmt->execute([$stuId, $levelNo]);
-    $payload['asked'] = $stmt->fetchAll();
+    $payload['chat'] = $stmt->fetchAll();
+
+    // 限時階段的剩餘秒數。前端的倒數以此為準，清掉 sessionStorage 也拿不回時間。
+    $remaining = ck_timer_remaining($stuId, $levelNo, (string)$progress['phase']);
+    $payload['progress']['remaining'] = $remaining === null ? null : max(0, (int)ceil($remaining));
 
     // 證據牆分類（只回自己的分類，不回對錯——對錯要到回饋階段才揭露）
     $stmt = db()->prepare(

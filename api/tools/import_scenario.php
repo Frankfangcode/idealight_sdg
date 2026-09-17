@@ -98,7 +98,10 @@ try {
     $insCfg = $pdo->prepare('INSERT INTO ck_config (ck_key, ck_value, is_public) VALUES (?, ?, ?)');
     $cfg = [
         ['PHASE_SECONDS',           $data['PHASE_SECONDS'],           1],
-        ['MAX_INTERROGATIONS',      $data['MAX_INTERROGATIONS'],      1],
+        // 訊問設定是實驗參數、不是劇本內容，所以不從 scenario.js 來。
+        // 訊問秒數以這裡的 seconds 為準（前後端都會用它蓋掉 PHASE_SECONDS.interrogation）；
+        // 舊機制的 MAX_INTERROGATIONS（每關限問 2 人）已停用。
+        ['INTERROGATION',           ['seconds' => 150, 'graceSeconds' => 3, 'maxChars' => 200, 'nudgeIdleSeconds' => 25], 1],
         ['ZONES',                   $data['ZONES'],                   1],
         ['RANKING_QUESTION',        $data['RANKING_QUESTION'],        1],
         ['SHOW_OWN_CLASSIFICATION', $data['SHOW_OWN_CLASSIFICATION'], 1],

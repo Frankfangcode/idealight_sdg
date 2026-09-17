@@ -585,6 +585,9 @@
     font-size: var(--fs-base);
     line-height: var(--lh-loose);
     box-shadow: var(--sh-sm);
+    /* 內容是受試者自由打的字與 AI 的回答，長度與斷行都不可控 */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
   .bubble--player {
     align-self: flex-end;
@@ -1071,6 +1074,11 @@
   .chat__row {
     display: flex;
     gap: var(--sp-3);
+  }
+  /* 自由打字的訊問輸入框：吃掉整列剩餘寬度，送出鈕維持原尺寸 */
+  .chat__input {
+    flex: 1;
+    min-width: 0;
   }
   .attempts {
     display: flex;

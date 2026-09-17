@@ -6,7 +6,7 @@
      劇本與設定  由 api.js 從 ck_state.php 取得，不再寫死在前端
      正解        留在伺服器，回饋階段才發放，且僅限實驗組
      進度        存在 ck_progress，重整／換裝置都能續跑
-     訊問上限    由後端擋（唯一鍵 + 次數檢查），前端只是先行提示
+     訊問        自由打字、六人皆可問、不限次數；時間限制由後端擋，前端倒數只是顯示
      作答        每一步都寫進資料庫，不再只存 sessionStorage
 
    sessionStorage 只留純介面狀態（翻開了哪張卡、展開了哪一列、計時剩餘），
@@ -40,17 +40,18 @@
   let dragKey = null;
   let feedbackData = null; // 本關的回饋內容（含正解），由伺服器在提交後發放
   let busy = false; // 送出中：擋掉重複點擊造成的重複提交
+  let idleTimer = null; // 訊問階段的閒置計時；到點由選中的角色主動開口
 
   function freshLevel() {
     return {
       videoWatched: false,
       read: {},
       collapsed: {}, // 讀過之後又翻回角色介紹的卡片；read 只加不減，進度不會倒退
-      asked: {},
-      attemptsUsed: 0,
+      chat: {}, // 訊問對話：角色 key → [{ role: 'player' | 'character' | 'nudge', content }]
       selected: null,
-      pendingChoice: null,
+      draft: '', // 輸入框裡還沒送出的字；重繪時要放回去
       awaitingAnswer: false,
+      streamText: '', // 角色正在串流中的回答
       placements: {},
       evidenceSubmitted: false,
       pick: null, // 說法最不合理的那一個人（單選）
@@ -93,12 +94,14 @@
     L.phaseIndex = idx < 0 ? 0 : idx;
     L.maxPhaseIndex = L.phaseIndex;
 
-    /* 訊問紀錄：伺服器記的是問了誰與哪一題，回答內容一併帶回來 */
-    L.asked = {};
-    (s.asked || []).forEach((a) => {
-      L.asked[a.char_key] = [{ q: a.q, a: a.a, detail: a.detail }];
+    /* 訊問對話：整段由伺服器還原，依角色分組 */
+    L.chat = {};
+    (s.chat || []).forEach((m) => {
+      (L.chat[m.char_key] = L.chat[m.char_key] || []).push({ role: m.role, content: m.content });
     });
-    L.attemptsUsed = Object.keys(L.asked).length;
+    /* 重整當下若正在等回答，那個請求已經斷了；伺服器仍會把回答收完存檔 */
+    L.awaitingAnswer = false;
+    L.streamText = '';
 
     /* 證據牆：有紀錄就代表已提交並鎖定 */
     const placements = s.placements || {};
@@ -118,6 +121,23 @@
     if (L.phaseIndex >= 2) KEYS.forEach((k) => (L.read[k] = true));
 
     state.screen = 'play';
+  }
+
+  /* 限時階段的剩餘秒數以伺服器記錄的起算時間為準。要在疊回 sessionStorage 的
+     介面狀態「之後」呼叫，否則會被本地的舊值蓋掉 —— 本地值可以靠清除
+     sessionStorage 重置，等於重整一次就多拿一整段訊問時間。 */
+  function applyServerTimer(s) {
+    if (state.screen !== 'play' || s.progress.remaining == null) return;
+    const L = lv();
+    const p = s.progress.phase;
+    if (p === 'interrogation') {
+      L.timeLeft[p] = s.progress.remaining;
+      if (s.progress.remaining <= 0) L.timedOut[p] = true;
+    } else if (!L.timedOut[p]) {
+      /* 證據牆／推理逾時要走 onTimeout 強制送出當下的作答，
+         所以留 1 秒讓計時器自己跑到底，而不是直接標成已逾時 */
+      L.timeLeft[p] = Math.max(1, s.progress.remaining);
+    }
   }
 
   /* 只存純介面狀態。作答與進度的權威在伺服器，這裡掉了也不影響資料。 */
@@ -172,9 +192,8 @@
   const isReview = () => lv().phaseIndex < reachedIndex();
   const charOf = (key) => SCENARIO.characters.find((c) => c.key === key);
   /* 組別由 students.`group` 決定並在 ck_runs 凍結，受試者不能自選。
-     訊問回答的詳細度不再依組別變動 —— 那是 demo 為了展示四種組合而做的，
-     現行設計只有「有無 AI 回饋」這一個操弄變項。 */
-  const isDetailedAi = () => true;
+     訊問時 AI 角色是否共享問話紀錄（主要操弄變項）完全在伺服器端決定，
+     前端沒有任何對應的旗標 —— 兩組的訊問畫面一模一樣。 */
   const hasAiFeedback = () => SERVER.hasAiFeedback;
 
   /* 發言只含文字，不含正解 —— correct / criterion 留在伺服器 */
@@ -183,11 +202,8 @@
     return (L.testimonies && L.testimonies[key]) || { text: '（發言載入失敗，請重新整理）' };
   }
 
-  /* 問題只有題目，角色的回答要實際送出訊問後才由伺服器發放 */
-  function questionsOf(key) {
-    const L = level();
-    return (L.questions && L.questions[key]) || [];
-  }
+  const chatOf = (key) => lv().chat[key] || [];
+  const askedCount = (key) => chatOf(key).filter((m) => m.role === 'player').length;
 
   /* ---------------------------------------------------------------- 工具 */
 
@@ -441,6 +457,19 @@
     /* 回顧舊階段時不倒數：計時只屬於最前緣的階段 */
     if (state.screen === 'play' && phaseDuration(phase()) && !lv().timedOut[phase()] && !isReview()) startTicker();
 
+    /* 訊問畫面每次重繪後：捲到最新一句、游標放回輸入框、重新起算閒置 */
+    if (state.screen === 'play' && phase() === 'interrogation') {
+      scrollChat();
+      const input = $('#askInput');
+      if (input && !input.disabled) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+      armIdle();
+    } else {
+      stopIdle();
+    }
+
   }
 
   /* == 開場 == */
@@ -471,7 +500,7 @@
                 <li><span>六個關卡，每一關都是同一個案子的不同面向</span></li>
                 <li><span>每關依序是：劇情影片 → 六人發言 → 訊問 → 證據牆 → 推理</span></li>
                 <li><span>訊問、證據牆、推理三個階段有時間限制，時間到會自動保存當下的作答</span></li>
-                <li><span>每關只能訊問 ${MAX_INTERROGATIONS} 個人，而且不能重複問同一個人</span></li>
+                <li><span>訊問時六個人都可以問，用打字提問、不限次數，只限時間</span></li>
               </ul>
             </div>
 
@@ -606,64 +635,53 @@
 
   /* == 個別訊問（UI-03） == */
 
+  function bubbles(log) {
+    return log
+      .map((m) =>
+        m.role === 'player'
+          ? `<div class="bubble bubble--player">${esc(m.content)}</div>`
+          : `<div class="bubble bubble--char">${esc(m.content)}</div>`
+      )
+      .join('');
+  }
+
   function viewInterrogation() {
     const L = lv();
-    /* 回顧模式也上鎖：後端 ck_ask 只擋次數不擋階段，這裡不鎖的話
-       受試者可以進了證據牆再回頭補問，時間與階段資料就失真了 */
+    /* 回顧模式也上鎖：進了證據牆再回頭補問，時間與階段資料就失真了。
+       後端 ck_chat 同樣會擋（階段不對、逾時都拒收），這裡只是不給輸入框。 */
     const review = isReview();
-    const locked = review || L.timedOut.interrogation || L.attemptsUsed >= MAX_INTERROGATIONS;
-    const remaining = MAX_INTERROGATIONS - L.attemptsUsed;
+    const locked = review || L.timedOut.interrogation;
+    const sel = L.selected;
 
     const suspects = KEYS.map((key) => {
-      const asked = !!L.asked[key];
-      const sel = L.selected === key;
-      /* 回顧模式反過來：問過的人可以點開重讀問答，沒問過的人沒東西可看 */
-      const disabled = review ? !asked : asked || (locked && !sel);
+      const n = askedCount(key);
+      const isSel = sel === key;
+      /* 回顧模式：沒問過的人沒東西可看。等回答時不給換人，避免回答落在別人的對話框 */
+      const disabled = (review && !chatOf(key).length) || (L.awaitingAnswer && !isSel);
       return `<button class="suspect" data-action="pick" data-key="${key}"
-        aria-pressed="${sel}" ${disabled ? 'disabled' : ''}>
+        aria-pressed="${isSel}" ${disabled ? 'disabled' : ''}>
         ${avatar(key)}${who(key)}
-        ${asked ? '<span class="suspect__done" aria-label="已訊問">✓ 已問</span>' : ''}
+        ${n ? `<span class="suspect__done" aria-label="已問 ${n} 句">已問 ${n}</span>` : ''}
       </button>`;
     }).join('');
 
-    const pips = Array.from(
-      { length: MAX_INTERROGATIONS },
-      (_, i) => `<span class="attempts__pip" data-used="${i < L.attemptsUsed}"></span>`
-    ).join('');
-
-    const sel = L.selected;
-    const log = sel && L.asked[sel] ? L.asked[sel] : [];
+    const log = sel ? chatOf(sel) : [];
+    const streaming = L.awaitingAnswer
+      ? `<div class="bubble bubble--char" id="streamBubble">${
+          L.streamText ? esc(L.streamText) : '<span class="dots"><span></span><span></span><span></span></span>'
+        }</div>`
+      : '';
 
     const logHtml = !sel
-      ? `<div class="chat__empty">從左邊選一個人開始追問。<br />每關只能問 ${MAX_INTERROGATIONS} 個人，且不能重複追問同一個人。</div>`
+      ? `<div class="chat__empty">從左邊選一個人開始訊問。<br />六個人都可以問，想問幾次都可以，只限時間。</div>`
       : log.length === 0 && !L.awaitingAnswer
-      ? `<div class="chat__empty">選一個問題送出。<br /><span class="xs">${
-          isDetailedAi() ? '本條件下 AI 會給詳細回答。' : '本條件下 AI 只回答「是／否／不知道」。'
-        }</span></div>`
-      : log
-          .map(
-            (m) => `
-        <div class="bubble bubble--player">${esc(m.q)}</div>
-        <div class="bubble bubble--char">
-          <span class="bubble__answer" data-a="${m.a}">${m.a}</span>
-          ${m.detail ? `<div class="bubble__detail">${esc(m.detail)}</div>` : ''}
-        </div>`
-          )
-          .join('') +
-        (L.awaitingAnswer
-          ? `<div class="bubble bubble--char"><span class="dots"><span></span><span></span><span></span></span></div>`
-          : '');
+      ? `<div class="chat__empty">${
+          locked ? '這一關你沒有訊問這個人。' : `在下面打字，問${esc(charOf(sel).name)}任何你想確認的事。`
+        }</div>`
+      : bubbles(log) + streaming;
 
-    const qs = sel && !L.asked[sel] && !locked ? questionsOf(sel) : null;
-    const choices = qs
-      ? qs
-          .map(
-            (item, i) => `<button class="choice" data-action="choose" data-i="${i}"
-          aria-pressed="${L.pendingChoice === i}" ${L.awaitingAnswer ? 'disabled' : ''}>
-          <span class="choice__mark"></span><span class="grow">${esc(item.q)}</span></button>`
-          )
-          .join('')
-      : '';
+    const total = KEYS.reduce((sum, k) => sum + askedCount(k), 0);
+    const people = KEYS.filter((k) => askedCount(k) > 0).length;
 
     return `
       <div class="interro">
@@ -676,11 +694,7 @@
           <div class="chat__head">
             ${sel ? avatar(sel, 'sm') + who(sel) : '<span class="muted small">尚未選擇關係人</span>'}
             <span class="grow"></span>
-            <span class="attempts">
-              <span>還可問</span>
-              <strong class="mono" style="font-size:var(--fs-md)">${Math.max(0, remaining)}</strong>
-              <span class="attempts__pips">${pips}</span>
-            </span>
+            <span class="xs subtle">已問 ${people} 人・共 ${total} 句</span>
           </div>
 
           <div class="chat__log" id="chatLog">${logHtml}</div>
@@ -689,30 +703,21 @@
             ${
               locked
                 ? `<div class="note note--warn"><span><strong>不能夠再問。</strong>${
-                    review
-                      ? '你已進入後面的階段，這裡只能回顧已送出的問答。'
-                      : L.timedOut.interrogation
-                      ? '訊問時間已到。'
-                      : `本關 ${MAX_INTERROGATIONS} 個人都問完了。`
+                    review ? '你已進入後面的階段，這裡只能回顧已送出的問答。' : '訊問時間已到。'
                   }已送出的問題與回答會保留。</span></div>
                    <button class="btn btn--primary btn--block" data-action="toEvidence">進入證據牆</button>`
                 : `
-              ${
-                qs
-                  ? `<span class="field__label">追問（取自教師解析版的「可用追問」）</span>
-                     <div class="choices">${choices}</div>
-                     <div class="chat__row">
-                       <span class="grow xs subtle">選一個問題後送出。每關只能問 ${MAX_INTERROGATIONS} 個人。</span>
-                       <button class="btn btn--primary" data-action="send"
-                        ${L.awaitingAnswer || L.pendingChoice === null ? 'disabled' : ''}>送出訊問</button>
-                     </div>`
-                  : sel
-                  ? `<div class="note"><span>已追問過 ${esc(charOf(sel).name)}，同一關不得重複追問同一個人。</span></div>`
-                  : '<p class="small subtle center">請先從左側選擇一個人。</p>'
-              }
+              <div class="chat__row">
+                <input class="input chat__input" id="askInput" type="text" autocomplete="off"
+                  maxlength="${INTERROGATION.maxChars}" value="${esc(L.draft || '')}"
+                  placeholder="${sel ? `問${esc(charOf(sel).name)}……（Enter 送出）` : '請先從左側選擇一個人'}"
+                  ${!sel || L.awaitingAnswer ? 'disabled' : ''} />
+                <button class="btn btn--primary" data-action="send"
+                  ${!sel || L.awaitingAnswer || !(L.draft || '').trim() ? 'disabled' : ''}>送出</button>
+              </div>
               <div class="row row--between">
-                <span class="xs subtle">已問 ${L.attemptsUsed}／${MAX_INTERROGATIONS} 人</span>
-                <button class="btn btn--ghost btn--sm" data-action="toEvidence">跳過剩餘追問，進入證據牆</button>
+                <span class="xs subtle">等待回答的時間也會計入，問題盡量具體。</span>
+                <button class="btn btn--ghost btn--sm" data-action="toEvidence">問完了，進入證據牆</button>
               </div>`
             }
           </div>
@@ -825,23 +830,20 @@
        他自己在證據牆的分類屬於作答，由 SHOW_OWN_CLASSIFICATION 控制。 */
     const recall = (key) => {
       const t = testimonyOf(key);
-      const log = L.asked[key] || [];
+      const log = chatOf(key);
       const placed = L.placements[key];
       return `<div class="recall">
         <p class="recall__text">${esc(t.text)}</p>
         ${
           log.length
-            ? log
-                .map(
-                  (m) => `<div class="recall__qa">
-                    <div class="recall__q">你問：${esc(m.q)}</div>
-                    <div class="recall__a"><span class="bubble__answer" data-a="${m.a}">${m.a}</span>${
-                    m.detail ? `<span class="recall__detail">${esc(m.detail)}</span>` : ''
-                  }</div>
-                  </div>`
+            ? `<div class="recall__qa">${log
+                .map((m) =>
+                  m.role === 'player'
+                    ? `<div class="recall__q">你問：${esc(m.content)}</div>`
+                    : `<div class="recall__a"><span class="recall__detail">${esc(m.content)}</span></div>`
                 )
-                .join('')
-            : '<p class="recall__none">這一關你沒有追問這個人。</p>'
+                .join('')}</div>`
+            : '<p class="recall__none">這一關你沒有訊問這個人。</p>'
         }
         ${
           SHOW_OWN_CLASSIFICATION && placed
@@ -1143,29 +1145,88 @@
     if (ta) lv().reason = ta.value;
   }
 
-  /* 回答由伺服器發放。次數上限與「不可重複追問同一人」也在伺服器擋，
-     前端的 disabled 只是先行提示，繞過去也沒用。 */
-  async function askQuestion(item) {
-    const L = lv();
-    const key = L.selected;
-    L.awaitingAnswer = true;
-    L.pendingChoice = null;
-    render();
-
-    const ok = await guard(async () => {
-      const r = await CK.ask(level().no, key, item.id);
-      L.asked[key] = [{ q: r.q, a: r.a, detail: r.detail }];
-      L.attemptsUsed = r.attemptsUsed;
-      if (r.attemptsLeft === 0) {
-        toast(`本關只能問 ${MAX_INTERROGATIONS} 個人，已經問完了`, 'warn');
-      }
-    }, '訊問失敗');
-
-    L.awaitingAnswer = false;
-    if (ok) save();
-    render();
+  function scrollChat() {
     const log = $('#chatLog');
     if (log) log.scrollTop = log.scrollHeight;
+  }
+
+  /* 送出一句自由打字的問題。回答以串流回來，邊收邊寫進對話泡泡。
+     這裡不走 guard()：guard 的 busy 旗標是全域的，串流期間若剛好時間到，
+     onTimeout → goPhase 會被它擋掉，受試者就卡在訊問階段出不去。 */
+  async function sendQuestion() {
+    const L = lv();
+    const no = level().no;
+    const key = L.selected;
+    const text = (L.draft || '').trim();
+    if (!key || !text || L.awaitingAnswer || isReview() || L.timedOut.interrogation) return;
+
+    (L.chat[key] = L.chat[key] || []).push({ role: 'player', content: text });
+    L.draft = '';
+    L.awaitingAnswer = true;
+    L.streamText = '';
+    stopIdle();
+    render();
+
+    try {
+      const done = await CK.chat(no, key, text, (delta) => {
+        L.streamText += delta;
+        /* 只改泡泡的文字，不整頁重繪：重繪會打斷倒數的畫面更新，也沒必要。
+           每次都重新找節點，因為期間可能被別的重繪（例如時間到）換掉。 */
+        const node = $('#streamBubble');
+        if (node) {
+          node.textContent = L.streamText;
+          scrollChat();
+        }
+      });
+      L.chat[key].push({ role: 'character', content: done.content });
+      /* 順便跟伺服器對時：前端倒數會因為分頁被放到背景而變慢 */
+      if (done.remaining != null && !L.timedOut.interrogation) {
+        L.timeLeft.interrogation = Math.max(0, Math.ceil(done.remaining));
+      }
+    } catch (e) {
+      /* 沒問成功就把問題放回輸入框，不要讓受試者重打。
+         409 多半是時間到 —— 伺服器的鐘比前端準，以它為準。 */
+      L.chat[key].pop();
+      L.draft = text;
+      toast(`訊問失敗：${e.message}`, 'error');
+    }
+
+    L.awaitingAnswer = false;
+    L.streamText = '';
+    save();
+    /* 回答期間受試者可能已經進了下一階段（或下一關），那就不要動畫面 */
+    if (state.screen === 'play' && level().no === no && phase() === 'interrogation') render();
+  }
+
+  /* ---- 閒置催促 ----
+     受試者停在某個角色的對話框、一段時間沒有打字也沒有送出，該角色會主動開口。
+     台詞由伺服器發放並寫入對話紀錄（預寫台詞，不經 LLM，兩組相同）。 */
+  function stopIdle() {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+
+  function armIdle() {
+    stopIdle();
+    if (state.screen !== 'play' || phase() !== 'interrogation' || isReview()) return;
+    const L = lv();
+    if (!L.selected || L.awaitingAnswer || L.timedOut.interrogation) return;
+
+    const no = level().no;
+    const key = L.selected;
+    idleTimer = setTimeout(async () => {
+      idleTimer = null;
+      try {
+        const r = await CK.nudge(no, key);
+        const stillHere = state.screen === 'play' && level().no === no && phase() === 'interrogation';
+        if (!r.content || !stillHere || L.awaitingAnswer) return;
+        (L.chat[key] = L.chat[key] || []).push({ role: 'nudge', content: r.content });
+        save();
+        render();
+      } catch (e) {
+        /* 催促是錦上添花，失敗就算了 */
+      }
+    }, INTERROGATION.nudgeIdleSeconds * 1000);
   }
 
   document.addEventListener('click', (ev) => {
@@ -1218,25 +1279,14 @@
 
       /* ---- 訊問 ---- */
       case 'pick':
+        if (L.awaitingAnswer) break;
         L.selected = btn.dataset.key;
-        L.pendingChoice = null;
         save();
         render();
         break;
-      case 'choose':
-        L.pendingChoice = Number(btn.dataset.i);
-        render();
+      case 'send':
+        sendQuestion();
         break;
-      case 'send': {
-        /* 自由提問移除：角色的回答必須來自伺服器上受控的內容，
-           否則會洩漏後面關卡才揭露的資訊（見 demo README 的答案洩漏控制）。 */
-        if (L.pendingChoice === null) {
-          toast('請先選一個問題', 'error');
-          return;
-        }
-        askQuestion(questionsOf(L.selected)[L.pendingChoice]);
-        break;
-      }
       case 'toEvidence':
         goPhase('evidence');
         break;
@@ -1324,6 +1374,14 @@
   });
 
   document.addEventListener('input', (ev) => {
+    if (ev.target.id === 'askInput') {
+      /* 不重繪（會吃掉輸入法的組字狀態），只同步草稿與送出鈕 */
+      lv().draft = ev.target.value;
+      const send = document.querySelector('[data-action="send"]');
+      if (send) send.disabled = !ev.target.value.trim() || lv().awaitingAnswer;
+      armIdle(); // 正在打字就不算閒置
+      return;
+    }
     if (ev.target.id === 'reason') {
       lv().reason = ev.target.value;
       const box = ev.target.closest('.field').querySelector('.counter');
@@ -1338,6 +1396,15 @@
         submit.textContent = !picked ? '請先勾選一個人' : len >= 40 ? '送出' : '理由至少 40 字才能送出';
       }
     }
+  });
+
+  /* 訊問輸入框按 Enter 送出。注音／倉頡等輸入法用 Enter 確認選字，
+     組字中的 Enter 不能當成送出，否則字還沒選完問題就出去了。 */
+  document.addEventListener('keydown', (ev) => {
+    if (ev.target.id !== 'askInput' || ev.key !== 'Enter') return;
+    if (ev.isComposing || ev.keyCode === 229) return;
+    ev.preventDefault();
+    sendQuestion();
   });
 
   /* Esc 關閉確認視窗（回饋視窗不可用 Esc 跳過） */
@@ -1466,6 +1533,8 @@
         if (!L.evidenceSubmitted) L.placements = ui[i].placements || {};
       });
     }
+
+    applyServerTimer(s);
 
     /* 已經完成六關的人直接進真相畫面 */
     if (s.progress.finished) {

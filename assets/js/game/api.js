@@ -14,7 +14,8 @@ const API = '../api/public';
 /* 這些全域由 CK.boot() 在啟動時填入，app.js 只讀不寫。 */
 let SCENARIO = null;
 let PHASE_SECONDS = {};
-let MAX_INTERROGATIONS = 2;
+/* 訊問設定：秒數、單句字數上限、閒置多久角色會主動開口 */
+let INTERROGATION = { seconds: 150, maxChars: 200, nudgeIdleSeconds: 25 };
 let ZONES = {};
 let RANKING_QUESTION = '';
 let SHOW_OWN_CLASSIFICATION = false;
@@ -59,8 +60,9 @@ const CK = (() => {
    * 不會去讀其他關卡的內容，所以稀疏不影響它運作。
    */
   function hydrate(s) {
-    PHASE_SECONDS = s.config.PHASE_SECONDS || {};
-    MAX_INTERROGATIONS = s.config.MAX_INTERROGATIONS ?? 2;
+    INTERROGATION = { ...INTERROGATION, ...(s.config.INTERROGATION || {}) };
+    /* 訊問秒數的單一來源是 INTERROGATION.seconds，蓋掉劇本檔裡的舊值 */
+    PHASE_SECONDS = { ...(s.config.PHASE_SECONDS || {}), interrogation: INTERROGATION.seconds };
     ZONES = s.config.ZONES || {};
     RANKING_QUESTION = s.config.RANKING_QUESTION || '';
     SHOW_OWN_CLASSIFICATION = !!s.config.SHOW_OWN_CLASSIFICATION;
@@ -116,7 +118,70 @@ const CK = (() => {
     advance: (levelNo, phase) => call('ck_advance.php', { levelNo, phase }),
     nextLevel: (levelNo) => call('ck_advance.php', { levelNo, nextLevel: true }),
 
-    ask: (levelNo, charKey, questionId) => call('ck_ask.php', { levelNo, charKey, questionId }),
+    /**
+     * 訊問：送出一句自由打字的問題，角色的回答以串流回來。
+     * 伺服器回 NDJSON（一行一個 JSON）；每收到一段文字就呼叫 onDelta，
+     * 讓第一個字盡快出現 —— 等 AI 回覆的時間不暫停計時。
+     * 回傳最後的 done 事件（完整回答與伺服器端的剩餘秒數）。
+     */
+    async chat(levelNo, charKey, message, onDelta) {
+      const res = await fetch(`${API}/ck_chat.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ levelNo, charKey, message }),
+      });
+
+      if (res.status === 401) {
+        location.href = '../login.html';
+        throw new Error('尚未登入');
+      }
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          msg = (await res.json()).message || msg;
+        } catch (e) {
+          /* 不是 JSON 就用狀態碼 */
+        }
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let done = null;
+
+      const handle = (line) => {
+        if (!line.trim()) return;
+        let ev;
+        try {
+          ev = JSON.parse(line);
+        } catch (e) {
+          return; // 不是 JSON 的行（例如伺服器警告訊息）直接略過，不要讓整個回答壞掉
+        }
+        if (ev.t === 'delta') onDelta(ev.v);
+        else if (ev.t === 'done') done = ev;
+      };
+
+      for (;;) {
+        const { value, done: eof } = await reader.read();
+        if (value) buf += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          handle(buf.slice(0, nl));
+          buf = buf.slice(nl + 1);
+        }
+        if (eof) break;
+      }
+      handle(buf);
+
+      if (!done) throw new Error('回答中斷了，請再問一次');
+      return done;
+    },
+
+    nudge: (levelNo, charKey) => call('ck_nudge.php', { levelNo, charKey }),
 
     submitEvidence: (levelNo, placements, timedOut = false) =>
       call('ck_evidence.php', { levelNo, placements, timedOut }),

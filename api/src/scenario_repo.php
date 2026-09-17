@@ -71,7 +71,8 @@ function ck_level_count(): int
 /**
  * 給前端的關卡內容。
  * 刻意不 SELECT correct / criterion / followup / ranking_criterion。
- * 訊問問題只給題目文字，角色的回答要實際發問後才由 ask.php 發放。
+ * ck_questions（教師版可用追問）也不出前端：訊問改為自由打字後，
+ * 它只當 AI 角色的口徑依據，給受試者看等於提示他該問什麼。
  */
 function ck_level_payload(int $levelNo): ?array
 {
@@ -96,15 +97,6 @@ function ck_level_payload(int $levelNo): ?array
         $testimonies[$r['char_key']] = ['text' => $r['text']];
     }
 
-    $stmt = $pdo->prepare(
-        'SELECT id, char_key, seq, q FROM ck_questions WHERE level_no = ? ORDER BY char_key, seq'
-    );
-    $stmt->execute([$levelNo]);
-    $questions = [];
-    foreach ($stmt->fetchAll() as $r) {
-        $questions[$r['char_key']][] = ['id' => (int)$r['id'], 'seq' => (int)$r['seq'], 'q' => $r['q']];
-    }
-
     // 判準預設不出前端（見 ck_config.SHOW_RANKING_CRITERION 的說明）
     $criterion = null;
     if (ck_config('SHOW_RANKING_CRITERION') === true) {
@@ -122,7 +114,6 @@ function ck_level_payload(int $levelNo): ?array
         'reasonableCount' => (int)$level['reasonable_count'],
         'video'           => ['src' => $level['video_src'], 'script' => $level['video_script']],
         'testimonies'     => $testimonies,
-        'questions'       => $questions,
     ];
 }
 
@@ -184,8 +175,8 @@ function ck_grading_data(int $levelNo): array
  * 取得或建立這位受試者的實驗回合。
  *
  * 組別編碼（students.`group`）：
- *   '1' → 實驗組（每關結束提供 AI 教學回饋）
- *   '2' → 控制組（僅完成訊息）
+ *   '1' → 實驗組（AI 角色共享問話紀錄；每關結束即時回饋）
+ *   '2' → 控制組（AI 角色彼此獨立）
  *
  * 用數字而非 'experiment'／'control'，是為了不讓受試者從任何地方
  * （網址、localStorage、DevTools）看出自己被分到哪一組。
@@ -234,7 +225,9 @@ function ck_run(string $stuId): array
 /**
  * 實驗組才有 AI 逐則回饋（控制組只有完成訊息）。
  *
- * 這是整個實驗唯一的操弄變項，也是 demo 版 hasAiFeedback() 的替代。
+ * 2026-09-17 會議後這不再是唯一的操弄變項：主要操弄改為訊問時 AI 角色之間
+ * 是否共享問話紀錄（見 interrogation.php）。回饋時機的新設計（實驗組每關即時、
+ * 控制組六關結束後統一給）尚未實作，這裡暫時維持原行為。
  * demo 原本的條件是 condition==='experiment' && session==='post'，
  * 因為當時設計是遊戲跑兩輪、只有後測輪給回饋；現行設計是遊戲跑一輪、
  * 前後各接一份 SurveyCake 問卷，所以 session 條件移除。
@@ -243,6 +236,49 @@ function ck_run(string $stuId): array
 function ck_has_ai_feedback(array $run): bool
 {
     return $run['cond'] === 'experiment';
+}
+
+/** 某階段的限時秒數；0 代表不限時。訊問的秒數另存在 INTERROGATION 設定裡。 */
+function ck_phase_seconds(string $phase): int
+{
+    if ($phase === 'interrogation') {
+        $cfg = ck_config('INTERROGATION');
+        if (is_array($cfg) && isset($cfg['seconds'])) {
+            return (int)$cfg['seconds'];
+        }
+    }
+    $all = ck_config('PHASE_SECONDS');
+    return (int)($all[$phase] ?? 0);
+}
+
+/** 記下限時階段的起算時間。重複呼叫不會重設 —— 重整頁面拿不回時間。 */
+function ck_timer_start(string $stuId, int $levelNo, string $phase): void
+{
+    if (ck_phase_seconds($phase) <= 0) {
+        return;
+    }
+    db()->prepare('INSERT IGNORE INTO ck_phase_timers (stu_id, level_no, phase) VALUES (?, ?, ?)')
+        ->execute([$stuId, $levelNo, $phase]);
+}
+
+/**
+ * 該階段還剩幾秒（可為負值＝已逾時）；不限時的階段回傳 null。
+ * 經過時間在 MySQL 端計算，避免 PHP 與資料庫時區設定不同造成誤差。
+ */
+function ck_timer_remaining(string $stuId, int $levelNo, string $phase): ?float
+{
+    $total = ck_phase_seconds($phase);
+    if ($total <= 0) {
+        return null;
+    }
+    ck_timer_start($stuId, $levelNo, $phase);
+
+    $stmt = db()->prepare(
+        'SELECT TIMESTAMPDIFF(MICROSECOND, started_at, NOW(3)) / 1000000
+         FROM ck_phase_timers WHERE stu_id = ? AND level_no = ? AND phase = ?'
+    );
+    $stmt->execute([$stuId, $levelNo, $phase]);
+    return $total - (float)$stmt->fetchColumn();
 }
 
 /** 記一筆事件（研究資料匯出用）。失敗不影響主流程。 */

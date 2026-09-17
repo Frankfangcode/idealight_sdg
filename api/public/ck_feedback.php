@@ -102,7 +102,7 @@ if ($aiResponse === null) {
     // AI 掛掉或金鑰沒設定時，逐則對照的部分仍要照常顯示——
     // 那是 UI-06 的主體，不該因為外部 API 失敗就讓實驗組看不到回饋。
     try {
-        $aiResponse = ck_openai_chat([
+        $aiResponse = ck_llm_chat([
             ['role' => 'system', 'content' => $system],
             ['role' => 'user',   'content' => $user],
         ]);

@@ -55,8 +55,10 @@ CREATE TABLE IF NOT EXISTS ck_testimonies (
   CONSTRAINT fk_testimony_char  FOREIGN KEY (char_key) REFERENCES ck_characters (char_key) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 訊問階段的可選問題與角色回答。
--- 回答內容嚴格限制在該關已揭露的資訊內（見 demo README 的答案洩漏控制）。
+-- 教師版的「可用追問」與角色回答。
+-- 訊問改為自由打字後，這些不再是給受試者點選的選項，也不出前端；
+-- 改當作 AI 角色的口徑依據：被問到類似問題時，要照這裡的事實與語氣回答
+-- （見 api/src/interrogation.php）。內容嚴格限制在該關已揭露的資訊內。
 CREATE TABLE IF NOT EXISTS ck_questions (
   id       INT        NOT NULL AUTO_INCREMENT,
   level_no INT        NOT NULL,
@@ -70,7 +72,7 @@ CREATE TABLE IF NOT EXISTS ck_questions (
   CONSTRAINT fk_question_level FOREIGN KEY (level_no) REFERENCES ck_levels (level_no) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 單值設定與大塊 JSON（PHASE_SECONDS、MAX_INTERROGATIONS、ZONES、
+-- 單值設定與大塊 JSON（PHASE_SECONDS、INTERROGATION、ZONES、
 -- RANKING_QUESTION、SHOW_OWN_CLASSIFICATION、brief、truth、debrief）。
 -- is_public = 0 的項目不對前端輸出。
 CREATE TABLE IF NOT EXISTS ck_config (
@@ -108,19 +110,45 @@ CREATE TABLE IF NOT EXISTS ck_progress (
   CONSTRAINT fk_progress_student FOREIGN KEY (stu_id) REFERENCES students (stu_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 訊問紀錄。每關上限由 ck_config 的 MAX_INTERROGATIONS 控制（現為 2），
--- 且不可重複追問同一人 —— 由 uniq_ask 在資料庫層擋住重複。
-CREATE TABLE IF NOT EXISTS ck_interrogations (
-  id          INT         NOT NULL AUTO_INCREMENT,
-  stu_id      VARCHAR(20) NOT NULL,
-  level_no    INT         NOT NULL,
-  char_key    VARCHAR(4)  NOT NULL,
-  question_id INT         NOT NULL,
-  asked_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+-- 訊問對話。六位角色都可以問、自由打字、不限次數，只以時間為限
+-- （2026-09-17 會議決議；舊機制「六選二、每人限問一次」的 ck_interrogations 已停用）。
+--
+--   player    受試者打的問題
+--   character AI 角色的回答。ai_ok = 0 代表 OpenAI 失敗、改用預寫的備援台詞，
+--             分析時要能把這些回合挑出來
+--   nudge     受試者閒置時角色主動開口的預寫台詞（不經 LLM，兩組相同）
+--
+-- 兩組的差異（AI 角色之間是否共享問話紀錄）不存在這張表裡，而是
+-- 組 prompt 時決定要帶哪些列進去 —— 見 api/src/interrogation.php。
+-- prompt_version 讓日後能追溯每句回答是在哪一版提示詞下產生的。
+CREATE TABLE IF NOT EXISTS ck_chat_messages (
+  id             BIGINT       NOT NULL AUTO_INCREMENT,
+  stu_id         VARCHAR(20)  NOT NULL,
+  level_no       INT          NOT NULL,
+  char_key       VARCHAR(4)   NOT NULL,
+  role           ENUM('player','character','nudge') NOT NULL,
+  content        TEXT         NOT NULL,
+  ai_ok          TINYINT(1)   NULL DEFAULT NULL,
+  latency_ms     INT          NULL DEFAULT NULL,       -- 送出問題到回答完成
+  model          VARCHAR(40)  NULL DEFAULT NULL,
+  prompt_version VARCHAR(20)  NULL DEFAULT NULL,
+  created_at     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uniq_ask (stu_id, level_no, char_key),
-  KEY idx_interro_lookup (stu_id, level_no),
-  CONSTRAINT fk_interro_student FOREIGN KEY (stu_id) REFERENCES students (stu_id) ON DELETE CASCADE
+  KEY idx_chat_lookup (stu_id, level_no, id),
+  CONSTRAINT fk_chat_student FOREIGN KEY (stu_id) REFERENCES students (stu_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 各限時階段的伺服器端起算時間。
+-- 訊問改成自由提問後，時間是唯一的限制，不能只靠前端倒數：
+-- 逾時的提問由 ck_chat.php 依這裡的時間拒收；重整頁面也從這裡還原剩餘秒數，
+-- 不會因為清掉 sessionStorage 就重新拿到一整段時間。
+CREATE TABLE IF NOT EXISTS ck_phase_timers (
+  stu_id     VARCHAR(20)  NOT NULL,
+  level_no   INT          NOT NULL,
+  phase      VARCHAR(20)  NOT NULL,
+  started_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (stu_id, level_no, phase),
+  CONSTRAINT fk_timer_student FOREIGN KEY (stu_id) REFERENCES students (stu_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 證據牆分類。一位受試者在一關對每個角色只有一個分類結果。
