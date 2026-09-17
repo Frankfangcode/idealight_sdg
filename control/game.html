@@ -7,8 +7,16 @@
     <meta name="description" content="批判性思考推理遊戲〈消失的月蝕巧克力莓果千層蛋糕〉。" />
     <link rel="stylesheet" href="../assets/css/game/tokens.css" />
     <link rel="stylesheet" href="../assets/css/game/app.css" />
+    <!-- 偵訊室主題（場景背景＋人物照＋紙張面板）。拿掉這一行就回到亮色版。 -->
+    <link rel="stylesheet" href="../assets/css/game/theme-noir.css" />
   </head>
   <body>
+    <!-- 全畫面場景背景：兩層交替淡入，由 app.js 的 setScene() 依階段切換 -->
+    <div class="scene" id="scene" aria-hidden="true">
+      <div class="scene__layer"></div>
+      <div class="scene__layer"></div>
+    </div>
+
     <div class="app">
       <header class="topbar">
         <div class="topbar__brand">

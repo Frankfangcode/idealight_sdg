@@ -227,8 +227,41 @@
     setTimeout(() => el.remove(), 3200);
   }
 
-  function avatar(key, size) {
-    return `<span class="avatar${size ? ' avatar--' + size : ''}" data-key="${key}" aria-hidden="true">${key}</span>`;
+  /* 頭像是人物照（theme-noir.css 依 data-key 套臉部特寫），裡面的編號只在
+     主題檔沒載入時當後備顯示。speaking：角色正在回答，外圈會脈動。 */
+  function avatar(key, size, speaking) {
+    return `<span class="avatar${size ? ' avatar--' + size : ''}" data-key="${key}"${
+      speaking ? ' data-speaking="true"' : ''
+    } aria-hidden="true">${key}</span>`;
+  }
+
+  /* ---- 場景背景 ----
+     每個階段一張全畫面背景，兩層交替淡入。圖檔在 assets/img/game/bg_*.jpg，
+     由 demo 的原圖（每張約 3MB）縮到 1920px、約 300KB —— 一間教室同時載入才不會卡。 */
+  const SCENES = {
+    setup: 'intro',
+    video: 'intro',
+    testimony: 'testimony',
+    interrogation: 'interrogation',
+    evidence: 'ranking',
+    ranking: 'ranking',
+    feedback: 'feedback',
+    truth: 'feedback',
+    debrief: 'feedback',
+  };
+  let sceneKey = null;
+
+  function setScene() {
+    const root = $('#scene');
+    if (!root) return;
+    const key = SCENES[state.screen === 'play' ? phase() : state.screen] || 'intro';
+    if (key === sceneKey) return;
+    sceneKey = key;
+
+    const layers = [...root.querySelectorAll('.scene__layer')];
+    const next = layers.find((l) => l.dataset.show !== 'true') || layers[0];
+    next.style.backgroundImage = `url(../assets/img/game/bg_${key}.jpg)`;
+    layers.forEach((l) => (l.dataset.show = String(l === next)));
   }
 
   /* 角色名字本身帶編號（一承、二寧…六禾），所以不再另外標字母 */
@@ -436,6 +469,7 @@
   function render() {
     renderTopbar();
     renderTabbar();
+    setScene();
     const main = $('#main');
 
     if (state.screen === 'setup') {
@@ -606,6 +640,12 @@
       return `<button class="tcard tcard--interactive" data-action="read" data-key="${key}"
           data-read="${isRead}" data-placeholder="${showText && !!t.placeholder}"
           aria-expanded="${showText}">
+          ${
+            showText
+              ? ''
+              : `<span class="tcard__photo" data-key="${key}"></span>
+                 <span class="tcard__tag">SUBJ—0${key}</span>`
+          }
           <span class="tcard__head">${avatar(key)}${who(key)}</span>
           ${
             showText
@@ -635,12 +675,12 @@
 
   /* == 個別訊問（UI-03） == */
 
-  function bubbles(log) {
+  function bubbles(key, log) {
     return log
       .map((m) =>
         m.role === 'player'
           ? `<div class="bubble bubble--player">${esc(m.content)}</div>`
-          : `<div class="bubble bubble--char">${esc(m.content)}</div>`
+          : `<div class="msg">${avatar(key, 'sm')}<div class="bubble bubble--char">${esc(m.content)}</div></div>`
       )
       .join('');
   }
@@ -667,9 +707,9 @@
 
     const log = sel ? chatOf(sel) : [];
     const streaming = L.awaitingAnswer
-      ? `<div class="bubble bubble--char" id="streamBubble">${
+      ? `<div class="msg">${avatar(sel, 'sm', true)}<div class="bubble bubble--char" id="streamBubble">${
           L.streamText ? esc(L.streamText) : '<span class="dots"><span></span><span></span><span></span></span>'
-        }</div>`
+        }</div></div>`
       : '';
 
     const logHtml = !sel
@@ -678,7 +718,7 @@
       ? `<div class="chat__empty">${
           locked ? '這一關你沒有訊問這個人。' : `在下面打字，問${esc(charOf(sel).name)}任何你想確認的事。`
         }</div>`
-      : bubbles(log) + streaming;
+      : bubbles(sel, log) + streaming;
 
     const total = KEYS.reduce((sum, k) => sum + askedCount(k), 0);
     const people = KEYS.filter((k) => askedCount(k) > 0).length;
@@ -692,12 +732,21 @@
 
         <div class="panel chat">
           <div class="chat__head">
-            ${sel ? avatar(sel, 'sm') + who(sel) : '<span class="muted small">尚未選擇關係人</span>'}
+            ${sel ? avatar(sel, 'lg', L.awaitingAnswer) + who(sel) : '<span class="muted small">尚未選擇關係人</span>'}
             <span class="grow"></span>
             <span class="xs subtle">已問 ${people} 人・共 ${total} 句</span>
           </div>
 
-          <div class="chat__log" id="chatLog">${logHtml}</div>
+          <div class="chat__stage">
+            <div class="chat__log" id="chatLog">${logHtml}</div>
+            ${
+              sel
+                ? `<aside class="chat__portrait" data-key="${sel}" data-speaking="${L.awaitingAnswer}" aria-hidden="true">
+                     <span class="chat__portrait-tag">SUBJ—0${sel}</span>
+                   </aside>`
+                : ''
+            }
+          </div>
 
           <div class="chat__compose">
             ${

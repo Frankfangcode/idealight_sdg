@@ -1,0 +1,431 @@
+/* ==========================================================================
+   偵訊室主題 — 疊在 tokens.css + app.css 之上
+
+   視覺語言取自 idealight_demo（電影場景背景、人物照、直角細線、字距拉開的小標），
+   但閱讀文字的面一律用米白紙張色＋深色字：2026-09-17 會議上老師明確指出
+   「全黑底白字、文字量大，學生看到一半會撐不住」，訊問區要
+   「米白接近灰的淺色底、深色文字，避免全白或全黑」。
+   所以是「暗場景當氣氛、紙張面板當閱讀面」，不是把 demo 的全黑版照搬過來。
+
+   做法是 token 作用域，不逐一改元件：
+     :root        場景上的 token —— 淺色字、半透明深色面
+     紙張容器     在容器上重新宣告同一組 token 成深色字、紙張面；
+                  自訂屬性會繼承，容器裡的按鈕、標籤、輸入框自動跟著變
+
+   本檔刻意不放進 @layer：未分層的規則優先於 app.css 裡所有分層的規則，
+   覆寫時不必跟原本的選擇器比權重。拿掉 game.html 裡這一行 <link> 就回到亮色版。
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ token */
+
+:root {
+  --paper: #efece6;
+  --paper-raised: #f8f6f1;
+  --paper-sunken: #e2ded4;
+  --paper-line: #cfc9bd;
+  --paper-line-strong: #b5ad9d;
+  --paper-text: #191a1c;
+  --paper-muted: #55534d;
+  --paper-subtle: #78756d;
+
+  /* 場景上（面板之外）的預設值 */
+  --color-canvas: #08090b;
+  --color-surface: rgba(16, 18, 22, 0.82);
+  --color-surface-raised: rgba(255, 255, 255, 0.08);
+  --color-surface-sunken: rgba(0, 0, 0, 0.4);
+  --color-border: rgba(255, 255, 255, 0.14);
+  --color-border-strong: rgba(255, 255, 255, 0.26);
+  --color-text: #f2f3f4;
+  --color-text-muted: #c3c7cd;
+  --color-text-subtle: #969ca5;
+
+  /* 檔案夾的直角感：圓角收到幾乎沒有，頭像與膠囊標籤仍走 --r-full */
+  --r-sm: 2px;
+  --r-md: 3px;
+  --r-lg: 4px;
+  --r-xl: 6px;
+}
+
+/* 紙張容器：閱讀面 */
+.panel,
+.modal,
+.note,
+.narration,
+.hero__q,
+.roster__item,
+.zone,
+.tray,
+.wcard,
+.rankitem,
+.qa__item,
+.checklist li,
+.tcard[aria-expanded='true'] {
+  --color-surface: var(--paper);
+  --color-surface-raised: var(--paper-raised);
+  --color-surface-sunken: var(--paper-sunken);
+  --color-border: var(--paper-line);
+  --color-border-strong: var(--paper-line-strong);
+  --color-text: var(--paper-text);
+  --color-text-muted: var(--paper-muted);
+  --color-text-subtle: var(--paper-subtle);
+  color: var(--color-text);
+}
+
+/* ------------------------------------------------------------ 場景背景 */
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-text);
+}
+
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+.scene__layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-size: cover;
+  background-position: center;
+  filter: saturate(0.65) brightness(0.5) contrast(1.05);
+  transition: opacity 1.2s ease;
+  animation: scene-drift 40s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.scene__layer[data-show='true'] {
+  opacity: 1;
+}
+/* 壓暗上下緣，讓上方列與內容區的字在任何一張背景上都讀得到 */
+.scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(8, 9, 11, 0.72) 0%, rgba(8, 9, 11, 0.28) 28%, rgba(8, 9, 11, 0.5) 100%),
+    radial-gradient(120% 90% at 50% 40%, transparent 40%, rgba(8, 9, 11, 0.7) 100%);
+}
+@keyframes scene-drift {
+  from { transform: scale(1.05) translate(0, 0); }
+  to   { transform: scale(1.14) translate(-1.6%, -1%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene__layer {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------ 上下固定列 */
+
+.topbar,
+.tabbar {
+  background: rgba(8, 9, 11, 0.74);
+  backdrop-filter: blur(14px);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.topbar__title {
+  letter-spacing: 0.1em;
+}
+.tab {
+  color: var(--color-text-muted);
+}
+.tab[aria-current='page'] {
+  color: var(--c-teal-300);
+}
+.levels__dot[data-state='todo'] {
+  color: var(--color-text-subtle);
+}
+.timer {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+.timer[data-state='warn'] { color: #ffb454; }
+.timer[data-state='danger'] { color: #ff6b81; }
+
+/* ---------------------------------------------------------- 階段標頭 */
+
+.phase-head {
+  border-bottom-color: rgba(255, 255, 255, 0.16);
+}
+.phase-head__eyebrow,
+.hero__eyebrow {
+  letter-spacing: 0.32em;
+  font-weight: var(--fw-bold);
+}
+.phase-head__title {
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+}
+.phase-head__desc strong.muted {
+  color: var(--color-text-subtle);
+}
+
+/* ---------------------------------------------------------------- 頭像
+   人物照取代原本的編號色塊。臉部特寫是從 char_{key}.jpg 裁出來的
+   avatar_{key}.jpg；換人物照時兩個檔都要換。 */
+
+.avatar {
+  background-size: cover;
+  background-position: center;
+  font-size: 0; /* 藏掉裡面的編號，名字本身已經帶數字 */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.1);
+  filter: saturate(0.85);
+}
+.avatar { width: 46px; height: 46px; }
+.avatar--sm { width: 34px; height: 34px; font-size: 0; }
+.avatar--lg { width: 64px; height: 64px; font-size: 0; }
+.avatar[data-key='1'] { background-image: url(../../img/game/avatar_1.jpg); }
+.avatar[data-key='2'] { background-image: url(../../img/game/avatar_2.jpg); }
+.avatar[data-key='3'] { background-image: url(../../img/game/avatar_3.jpg); }
+.avatar[data-key='4'] { background-image: url(../../img/game/avatar_4.jpg); }
+.avatar[data-key='5'] { background-image: url(../../img/game/avatar_5.jpg); }
+.avatar[data-key='6'] { background-image: url(../../img/game/avatar_6.jpg); }
+
+/* 角色正在回答：頭像外圈脈動。會議要的嘴型開闔動畫需要另外的逐格素材，
+   這是素材到位之前的替代——至少看得出「是誰正在講話」。 */
+.avatar[data-speaking='true'] {
+  animation: speaking 1.1s ease-in-out infinite;
+}
+@keyframes speaking {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 155, 34, 0.25); }
+  50%      { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 0 6px rgba(255, 155, 34, 0.6); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar[data-speaking='true'] {
+    animation: none;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(255, 155, 34, 0.6);
+  }
+}
+
+/* ------------------------------------------------------------- 人物照卡
+   證詞卡的正面是檔案照（暗），翻開是紙本說法（亮）。 */
+
+.tcard__photo {
+  display: block;
+  height: 210px;
+  margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) 0;
+  background-size: cover;
+  background-position: 50% 16%;
+  filter: saturate(0.75) contrast(1.05);
+  position: relative;
+}
+.tcard__photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 45%, rgba(16, 18, 22, 0.95) 100%);
+}
+/* 每張照片臉的高度不同；橫向窄裁切時各自對位，才不會切到頭頂或只剩下巴 */
+.tcard__photo[data-key='1'] { background-image: url(../../img/game/char_1.jpg); background-position: 50% 12%; }
+.tcard__photo[data-key='2'] { background-image: url(../../img/game/char_2.jpg); background-position: 50% 25%; }
+.tcard__photo[data-key='3'] { background-image: url(../../img/game/char_3.jpg); background-position: 50% 22%; }
+.tcard__photo[data-key='4'] { background-image: url(../../img/game/char_4.jpg); background-position: 50% 25%; }
+.tcard__photo[data-key='5'] { background-image: url(../../img/game/char_5.jpg); background-position: 50% 7%; }
+.tcard__photo[data-key='6'] { background-image: url(../../img/game/char_6.jpg); background-position: 50% 10%; }
+
+.tcard__tag {
+  position: absolute;
+  top: var(--sp-3);
+  left: var(--sp-3);
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+.tcard {
+  overflow: hidden;
+}
+.tcard[aria-expanded='false'] {
+  background: #101216;
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--color-text);
+}
+/* 正面已經有整張人物照，不需要再放一個小頭像 */
+.tcard[aria-expanded='false'] .tcard__head .avatar {
+  display: none;
+}
+.tcard[aria-expanded='false'] .tcard__head {
+  margin-top: calc(var(--sp-6) * -1);
+  position: relative;
+  z-index: 1;
+}
+.tcard[aria-expanded='false'] .who__name {
+  font-size: var(--fs-xl);
+  letter-spacing: 0.08em;
+}
+.tcard[aria-expanded='false'] .who__role,
+.tcard[aria-expanded='false'] .tcard__trait {
+  color: var(--color-text-muted);
+}
+.tcard[aria-expanded='false'] .tcard__cta {
+  color: var(--c-amber-400);
+  padding-top: var(--sp-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.tcard--interactive[aria-expanded='false']:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.tcard--interactive[aria-expanded='false']:hover .tcard__cta {
+  color: #ffc067;
+}
+.tcard[aria-expanded='true'] {
+  background: var(--paper);
+  border-color: var(--paper-line);
+}
+
+/* ---------------------------------------------------------------- 開場 */
+
+.hero__title {
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.7);
+}
+.hero__lead,
+.hero__body {
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8);
+}
+
+/* ---------------------------------------------------------------- 訊問 */
+
+.suspect {
+  border-color: var(--color-border);
+}
+.suspect .avatar {
+  width: 52px;
+  height: 52px;
+}
+.suspect[aria-pressed='true'] {
+  background: var(--paper-raised);
+  border-color: var(--paper-text);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+.suspect:disabled {
+  opacity: 0.45;
+}
+
+.chat__head {
+  gap: var(--sp-4);
+}
+.chat__head .who__name {
+  font-size: var(--fs-lg);
+}
+/* 對話區比面板再灰一階：會議要的「米白接近灰」，泡泡才浮得出來 */
+.chat__log {
+  background: #e6e2d9;
+}
+.msg {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  align-self: flex-start;
+  max-width: 82%;
+}
+.msg .bubble {
+  max-width: none;
+}
+.bubble--char {
+  background: #fdfcfa;
+  border-color: var(--paper-line);
+  color: var(--paper-text);
+}
+.bubble--player {
+  box-shadow: 0 2px 8px rgba(194, 106, 2, 0.25);
+}
+
+/* 選中角色的人物照，放在對話區右側：訊問時「面對著這個人」。
+   寬度不夠（< 1100px）就收掉，對話區優先。 */
+.chat__stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  min-height: 0;
+}
+.chat__stage .chat__log {
+  max-height: 52vh;
+  min-height: 340px;
+}
+.chat__portrait {
+  position: relative;
+  border-left: 1px solid var(--paper-line);
+  background-color: #101216;
+  background-size: cover;
+  background-position: 50% 20%;
+  filter: saturate(0.8) contrast(1.05);
+  transition: filter 0.4s ease;
+}
+.chat__portrait::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 9, 11, 0.35) 0%, transparent 30%, transparent 70%, rgba(8, 9, 11, 0.55) 100%);
+  transition: box-shadow 0.4s ease;
+}
+/* 正在回答：照片提亮、內框亮起 */
+.chat__portrait[data-speaking='true'] {
+  filter: saturate(1) contrast(1.05) brightness(1.08);
+}
+.chat__portrait[data-speaking='true']::after {
+  box-shadow: inset 0 0 0 3px rgba(255, 155, 34, 0.75);
+}
+.chat__portrait-tag {
+  position: absolute;
+  top: var(--sp-3);
+  left: var(--sp-3);
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+.chat__portrait[data-key='1'] { background-image: url(../../img/game/char_1.jpg); }
+.chat__portrait[data-key='2'] { background-image: url(../../img/game/char_2.jpg); }
+.chat__portrait[data-key='3'] { background-image: url(../../img/game/char_3.jpg); }
+.chat__portrait[data-key='4'] { background-image: url(../../img/game/char_4.jpg); }
+.chat__portrait[data-key='5'] { background-image: url(../../img/game/char_5.jpg); }
+.chat__portrait[data-key='6'] { background-image: url(../../img/game/char_6.jpg); }
+@media (max-width: 1100px) {
+  .chat__stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .chat__portrait {
+    display: none;
+  }
+}
+
+/* 提示訊息原本是淺灰底，場景上的字已改成淺色，兩者疊在一起會看不見 */
+.toast {
+  background: rgba(16, 18, 22, 0.94);
+  color: #f2f3f4;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.toast[data-kind='error'] { border-color: #ff6b81; }
+.toast[data-kind='warn'] { border-color: #ffb454; }
+
+/* ------------------------------------------------------------ 對話框 */
+
+.overlay {
+  background: rgba(4, 5, 7, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+/* 影片佔位框原本是亮色斜紋，放在暗場景上太刺眼 */
+.video-ph {
+  background: #101216;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 720px) {
+  .tcard__photo {
+    height: 170px;
+  }
+  .msg {
+    max-width: 94%;
+  }
+}
