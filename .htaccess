@@ -1,0 +1,10 @@
+# Apache（XAMPP／學校主機）安全設定。PHP 內建伺服器會忽略本檔，不影響本機開發。
+
+# 關閉目錄列表
+Options -Indexes
+
+# 點開頭的檔案與路徑（.env、.git、.gitignore…）一律不對外
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+RedirectMatch 404 /\.(env|git)

@@ -1,0 +1,2 @@
+# 匯入工具只能由命令列執行，不對外
+Require all denied

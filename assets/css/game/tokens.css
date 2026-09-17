@@ -1,0 +1,161 @@
+/* ==========================================================================
+   消失的月蝕巧克力莓果千層蛋糕 — Design Token（亮色版）
+   對齊網站既有的 GetRider 模板（login.html / main.css）：
+   白底、#222 文字、#ff9b22 主橘、#ddd 淺灰邊框、Work Sans 字系。
+   primitive 的命名沿用 demo 深色版（ink／amber…），值改為亮色對應——
+   app.css 大量直接引用這些名字，改值不改名可以讓版面規則一行都不用動。
+   ========================================================================== */
+
+:root {
+  /* ---- 色彩 primitive：亮色調查室 ----
+     ink 在深色版是背景階，這裡反轉為「白→淺灰→邊框灰」：
+     數字越大越接近畫布底色（與深色版的用法一致）。 */
+  --c-ink-900: #ffffff;   /* 畫布 */
+  --c-ink-800: #f2f2f2;   /* 內凹面 */
+  --c-ink-700: #ffffff;   /* 卡片面 */
+  --c-ink-600: #f7f7f7;   /* 浮起面 */
+  --c-ink-500: #dddddd;   /* 邊框 */
+  --c-ink-400: #cccccc;   /* 強邊框／捲軸 */
+  --c-ink-300: #aaaaaa;
+
+  /* 紙質證詞卡維持米紙色——放在白底上仍成立 */
+  --c-paper-100: #f9f5ec;
+  --c-paper-200: #efe8d8;
+  --c-paper-300: #d5cab2;
+
+  /* 文字階：對齊 main.css 的 #222222 / #666666 / #999999 */
+  --c-text-100: #222222;
+  --c-text-200: #444444;
+  --c-text-300: #666666;
+  --c-text-400: #999999;
+
+  /* amber → 模板主橘。-300 在版面上都是「橘色強調文字」，
+     亮底上要夠深才讀得到；按鈕 hover 另走 --color-primary-hover。 */
+  --c-amber-300: #c26a02;
+  --c-amber-400: #ff9b22;
+  --c-amber-500: #e08a1e;
+  --c-amber-900: #fff1df;  /* 深色版的暗底 → 亮色版的淡橘底 */
+
+  /* teal（合理說法）：亮底上加深 */
+  --c-teal-300: #147a63;
+  --c-teal-400: #1f9c80;
+  --c-teal-500: #1c8a72;
+  --c-teal-600: #16705d;
+  --c-teal-900: #e4f5ef;
+
+  /* rose（破綻）：亮底上加深 */
+  --c-rose-300: #a63a52;
+  --c-rose-400: #c94f6a;
+  --c-rose-600: #b64961;
+  --c-rose-900: #fbecf0;
+
+  /* violet（AI） */
+  --c-violet-300: #5b49b8;
+  --c-violet-400: #7a68d8;
+  --c-violet-900: #efecfc;
+
+  --c-blue-400: #3d7fc4;
+
+  /* ---- 色彩 semantic ---- */
+  --color-canvas: var(--c-ink-900);
+  --color-surface: var(--c-ink-700);
+  --color-surface-raised: var(--c-ink-600);
+  --color-surface-sunken: var(--c-ink-800);
+  --color-border: var(--c-ink-500);
+  --color-border-strong: var(--c-ink-400);
+
+  --color-text: var(--c-text-100);
+  --color-text-muted: var(--c-text-300);
+  --color-text-subtle: var(--c-text-400);
+
+  --color-primary: var(--c-amber-400);
+  --color-primary-hover: #ffa73c;        /* main.css 的 uk-button-danger:hover */
+  --color-primary-ink: #ffffff;          /* 橘底白字，同登入頁按鈕 */
+  --color-selected: var(--c-teal-400);   /* UI 規格：選取狀態以綠色標示 */
+  --color-trusted: var(--c-teal-400);    /* 合理說法 */
+  --color-flaw: var(--c-rose-400);       /* 破綻證據牆 */
+  --color-ai: var(--c-violet-400);
+  --color-danger: var(--c-rose-400);
+  --color-info: var(--c-blue-400);
+
+  /* ---- 字體：對齊 main.css 的 Work Sans 系 ---- */
+  --font-sans: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "PingFang TC",
+    "Microsoft JhengHei", sans-serif;
+  /* 模板沒有襯線字，標題與內文同字系（原 serif 用途一併跟上） */
+  --font-serif: var(--font-sans);
+  --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.9375rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: 1.75rem;
+  --fs-3xl: 2.25rem;
+  --fs-4xl: 3rem;
+
+  --lh-tight: 1.25;
+  --lh-normal: 1.55;
+  --lh-loose: 1.8;
+
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-bold: 700;
+  --fw-black: 900;
+
+  /* ---- 間距（4px 級距） ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+
+  /* ---- 圓角 ---- */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 18px;
+  --r-full: 999px;
+
+  /* ---- 陰影：亮色版收斂 ---- */
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --sh-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --sh-lg: 0 12px 32px rgba(0, 0, 0, 0.14);
+  --sh-glow-teal: 0 0 0 1px var(--c-teal-400), 0 0 20px rgba(31, 156, 128, 0.22);
+  --sh-glow-amber: 0 0 0 1px var(--c-amber-400), 0 0 20px rgba(255, 155, 34, 0.25);
+
+  /* ---- 動效 ---- */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 340ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- z-index ---- */
+  --z-base: 0;
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-overlay: 800;
+  --z-modal: 900;
+  --z-toast: 1000;
+
+  /* ---- 版面 ---- */
+  --topbar-h: 60px;
+  --tabbar-h: 64px;
+  --content-max: 1240px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}

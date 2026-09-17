@@ -1,11 +1,12 @@
 <?php
 require_once '../src/db.php';
+require_once '../src/config.php';
 
 header('Content-Type: application/json');
 $input = json_decode(file_get_contents('php://input'), true);
 
-// OpenAI API Key
-$apiKey = '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';
+// OpenAI API Key：一律走 .env（見 config.php），不寫進程式碼
+$apiKey = ck_openai_key();
 
 $stu_id = $input['stu_id'] ?? 'guest';
 $scenario_id = (int)($input['scenario_id'] ?? 1);

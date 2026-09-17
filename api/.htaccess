@@ -1,0 +1,4 @@
+# schema 檔不對外（含子目錄）
+<FilesMatch "\.sql$">
+    Require all denied
+</FilesMatch>

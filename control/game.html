@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>消失的月蝕巧克力莓果千層蛋糕</title>
+    <meta name="description" content="批判性思考推理遊戲〈消失的月蝕巧克力莓果千層蛋糕〉。" />
+    <link rel="stylesheet" href="../assets/css/game/tokens.css" />
+    <link rel="stylesheet" href="../assets/css/game/app.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="topbar__brand">
+          <span class="topbar__title" id="brandTitle"></span>
+        </div>
+
+        <nav class="levels" id="levels" aria-label="關卡進度"></nav>
+
+        <div class="topbar__spacer"></div>
+
+        <div class="topbar__right" id="topbarRight"></div>
+      </header>
+
+      <main class="main" id="main" tabindex="-1"></main>
+
+      <nav class="tabbar" id="tabbar" aria-label="遊戲畫面切換" hidden></nav>
+    </div>
+
+    <div class="overlay" id="overlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" id="modal"></div>
+    </div>
+
+    <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+    <!--
+      demo 版的「DEMO 控制列」（跳過計時／自動填答／跳到第 6 關）已移除。
+      那些按鈕會直接污染研究資料，正式施測不能留。
+    -->
+
+    <script src="../assets/js/game/api.js"></script>
+    <script src="../assets/js/game/app.js"></script>
+  </body>
+</html>
