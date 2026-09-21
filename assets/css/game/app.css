@@ -1635,3 +1635,128 @@
     right: var(--sp-2);
   }
 }
+
+/* ==========================================================================
+   可讀性調整（2026-09 試玩回饋：字太小、計時不明顯、回饋視窗太小）
+   刻意不放進 @layer：未分層的規則優先於上面所有分層規則；
+   選擇器也寫得比 theme-noir.css 的同名規則更具體，兩個主題下都成立。
+   整體字級的放大在 tokens.css 的 --fs-*。
+   ========================================================================== */
+
+/* -- 計時器：受試者要一眼看得到還剩多少時間 -- */
+.topbar .timer {
+  gap: var(--sp-3);
+  padding: 6px var(--sp-4);
+  border-width: 2px;
+  border-color: var(--c-amber-400);
+  border-radius: var(--r-lg);
+  font-size: 1.75rem;
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  box-shadow: 0 0 0 3px rgba(255, 155, 34, 0.25);
+}
+/* 標籤由 app.js 給：平常是「剩餘時間」，回顧舊階段時寫明是哪個階段在倒數 */
+.topbar .timer::before {
+  content: attr(data-label);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+.topbar .timer__bar {
+  width: 96px;
+  height: 6px;
+}
+.topbar .timer[data-state='warn'] {
+  border-color: #ffb454;
+  box-shadow: 0 0 0 3px rgba(255, 180, 84, 0.35);
+}
+/* 最後 10 秒：數字保持不透明（原本的 pulse 是整塊變淡，深色頂欄上反而看不清楚），
+   改用底色與外框光暈閃爍 */
+.topbar .timer[data-state='danger'] {
+  background: #c9304a;
+  border-color: #ff6b81;
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(255, 107, 129, 0.4);
+  animation: timer-alarm 1s var(--ease-in-out) infinite;
+}
+@keyframes timer-alarm {
+  50% {
+    background: #e8435f;
+    box-shadow: 0 0 0 9px rgba(255, 107, 129, 0.18);
+  }
+}
+
+/* -- 證詞牌卡：說法是主要閱讀內容，字要夠大 -- */
+.tcard__text,
+.recall__text {
+  font-size: 1.1875rem;
+  line-height: var(--lh-loose);
+}
+.tcard__trait {
+  font-size: var(--fs-md);
+}
+.tcard .who__name {
+  font-size: var(--fs-lg);
+}
+.tcard .who__role {
+  font-size: var(--fs-sm);
+}
+
+/* -- 訊問輸入框下方的說明（取代原本的「問完了」按鈕） -- */
+.chat__hint {
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  line-height: var(--lh-normal);
+}
+
+/* -- 回饋視窗：滿版 -- */
+.overlay:has(.modal[data-size='full']) {
+  padding: var(--sp-3);
+}
+/* 高度用視窗單位而不是 100%：.overlay 是 grid，百分比高度會被內容撐開，
+   內文就捲不動、下方的按鈕也會掉到畫面外 */
+.modal[data-size='full'] {
+  width: 100%;
+  height: calc(100vh - var(--sp-3) * 2);
+  height: calc(100dvh - var(--sp-3) * 2);
+  max-height: none;
+}
+.modal[data-size='full'] .modal__head,
+.modal[data-size='full'] .modal__foot {
+  padding-left: max(var(--sp-6), calc((100% - 1200px) / 2));
+  padding-right: max(var(--sp-6), calc((100% - 1200px) / 2));
+}
+.modal[data-size='full'] .modal__title {
+  font-size: var(--fs-2xl);
+}
+.modal[data-size='full'] .modal__body {
+  padding: var(--sp-8) max(var(--sp-6), calc((100% - 1200px) / 2));
+  gap: var(--sp-6);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-loose);
+}
+.modal[data-size='full'] .fb__opening {
+  padding: var(--sp-6) var(--sp-8);
+  font-size: var(--fs-lg);
+}
+.modal[data-size='full'] .fbitem {
+  padding: var(--sp-5) var(--sp-6);
+  gap: var(--sp-3);
+}
+.modal[data-size='full'] .fbitem__head {
+  font-size: var(--fs-lg);
+}
+.modal[data-size='full'] .fbitem__label {
+  font-size: var(--fs-sm);
+}
+.modal[data-size='full'] .fbitem__text,
+.modal[data-size='full'] .note,
+.modal[data-size='full'] .small {
+  font-size: var(--fs-md);
+}
+.modal[data-size='full'] .modal__foot .btn {
+  padding: var(--sp-4) var(--sp-8);
+  font-size: var(--fs-lg);
+}

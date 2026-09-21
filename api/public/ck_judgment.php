@@ -45,16 +45,15 @@ if ((int)$stmt->fetchColumn() > 0) {
 
 $answerKey = ck_answer_key($levelNo);
 
-// 理由字數門檻與前端的送出條件一致（40 字）。前端可被繞過，
-// 所以底線在這裡；逾時提交則不套用，照原樣收下。
-$MIN_REASON = 40;
-
+// 理由不設字數門檻（受試者打得到、打不到都有可能），只要求不是空白，
+// 與前端的送出條件一致。前端可被繞過，所以底線在這裡；
+// 逾時提交則不套用，照原樣收下。
 if (!$timedOut) {
     if (!isset($answerKey[$pickChar])) {
         ck_fail('選擇的角色不存在');
     }
-    if (mb_strlen($reason) < $MIN_REASON) {
-        ck_fail("理由至少需要 {$MIN_REASON} 個字（目前 " . mb_strlen($reason) . ' 字）');
+    if ($reason === '') {
+        ck_fail('請先寫下理由');
     }
 } elseif ($pickChar !== '' && !isset($answerKey[$pickChar])) {
     ck_fail('選擇的角色不存在');

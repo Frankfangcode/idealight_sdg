@@ -131,8 +131,11 @@
     const L = lv();
     const p = s.progress.phase;
     if (p === 'interrogation') {
-      L.timeLeft[p] = s.progress.remaining;
-      if (s.progress.remaining <= 0) L.timedOut[p] = true;
+      /* 訊問只能靠時間到離開。伺服器說還在訊問階段，就代表還沒自動切走
+         （例如上次切換時斷線），所以清掉本地的逾時標記、留 1 秒讓計時器
+         跑到底，由 onTimeout 送進證據牆。逾時的提問後端本來就會拒收。 */
+      L.timedOut[p] = false;
+      L.timeLeft[p] = Math.max(1, s.progress.remaining);
     } else if (!L.timedOut[p]) {
       /* 證據牆／推理逾時要走 onTimeout 強制送出當下的作答，
          所以留 1 秒讓計時器自己跑到底，而不是直接標成已逾時 */
@@ -188,8 +191,12 @@
     const L = lv();
     return Math.max(L.maxPhaseIndex ?? 0, L.phaseIndex);
   };
-  /* 回顧模式：正在看已經走過的階段。只能瀏覽，不能作答、不倒數計時 */
+  /* 回顧模式：正在看已經走過的階段。只能瀏覽，不能作答 */
   const isReview = () => lv().phaseIndex < reachedIndex();
+  /* 實際進行到的階段。計時屬於它，不屬於「現在看的畫面」：
+     訊問到一半跳回去看六人發言，時間要照樣走（伺服器的鐘本來就沒停），
+     否則回顧等於暫停鍵，每個人實際拿到的訊問時間就不一樣長。 */
+  const livePhase = () => PHASES[reachedIndex()];
   const charOf = (key) => SCENARIO.characters.find((c) => c.key === key);
   /* 組別由 students.`group` 決定並在 ck_runs 凍結，受試者不能自選。
      訊問時 AI 角色是否共享問話紀錄（主要操弄變項）完全在伺服器端決定，
@@ -280,7 +287,7 @@
   }
 
   function ensureTimer() {
-    const p = phase();
+    const p = livePhase();
     const d = phaseDuration(p);
     if (!d) return;
     if (lv().timeLeft[p] === undefined) lv().timeLeft[p] = d;
@@ -288,7 +295,7 @@
 
   function startTicker() {
     stopTicker();
-    const p = phase();
+    const p = livePhase();
     if (!phaseDuration(p)) return;
     ticker = setInterval(() => {
       const L = lv();
@@ -314,7 +321,7 @@
   function paintTimer() {
     const node = $('#timer');
     if (!node) return;
-    const p = phase();
+    const p = livePhase();
     const total = phaseDuration(p);
     const left = lv().timeLeft[p] ?? total;
     node.querySelector('.timer__text').textContent = mmss(left);
@@ -328,8 +335,15 @@
   async function onTimeout(p) {
     const L = lv();
     if (p === 'interrogation') {
-      toast('訊問時間已到，不能夠再問', 'warn');
-      render();
+      /* 訊問沒有「問完了」的出口，時間到才自動進證據牆。
+         期限前送出的問題要讓它答完：還在等回答就先鎖輸入框，
+         由 sendQuestion 收尾時接手切換。 */
+      toast('訊問時間已到，進入證據牆', 'warn');
+      if (L.awaitingAnswer) {
+        render();
+        return;
+      }
+      await goPhase('evidence');
       return;
     }
 
@@ -422,20 +436,23 @@
       return;
     }
     const p = phase();
-    const total = phaseDuration(p);
+    /* 計時顯示的是實際進行中的階段（live），回顧時也照樣顯示、照樣走；
+       標籤寫明是哪個階段的時間，免得以為是「六人發言」在倒數 */
+    const live = livePhase();
+    const total = phaseDuration(live);
     const review = isReview();
-    const showTimer = total > 0 && !lv().timedOut[p] && !review;
+    const left = lv().timeLeft[live] ?? total;
+    const showTimer = total > 0 && !lv().timedOut[live];
+    const timerLabel = review ? `${PHASE_META[live].label}剩餘` : '剩餘時間';
     right.innerHTML = `
       <span class="badge badge--phase">${PHASE_META[p].label}</span>
+      ${review ? '<span class="badge">回顧中</span>' : ''}
       ${
-        review
-          ? '<span class="badge">回顧中</span>'
-          : showTimer
-          ? `<span class="timer" id="timer" data-state="ok" role="timer" aria-label="本階段剩餘時間">
-               <span class="timer__text">${mmss(lv().timeLeft[p] ?? total)}</span>
-               <span class="timer__bar"><span class="timer__fill" style="width:${
-                 ((lv().timeLeft[p] ?? total) / total) * 100
-               }%"></span></span>
+        showTimer
+          ? `<span class="timer" id="timer" role="timer" aria-label="${timerLabel}" data-label="${timerLabel}"
+               data-state="${left <= 10 ? 'danger' : left <= 30 ? 'warn' : 'ok'}">
+               <span class="timer__text">${mmss(left)}</span>
+               <span class="timer__bar"><span class="timer__fill" style="width:${(left / total) * 100}%"></span></span>
              </span>`
           : total > 0
           ? '<span class="badge">時間已到</span>'
@@ -488,8 +505,8 @@
     }
 
     stopTicker();
-    /* 回顧舊階段時不倒數：計時只屬於最前緣的階段 */
-    if (state.screen === 'play' && phaseDuration(phase()) && !lv().timedOut[phase()] && !isReview()) startTicker();
+    /* 計時屬於實際進行中的階段，回顧舊階段時照樣倒數（見 livePhase） */
+    if (state.screen === 'play' && phaseDuration(livePhase()) && !lv().timedOut[livePhase()]) startTicker();
 
     /* 訊問畫面每次重繪後：捲到最新一句、游標放回輸入框、重新起算閒置 */
     if (state.screen === 'play' && phase() === 'interrogation') {
@@ -764,10 +781,7 @@
                 <button class="btn btn--primary" data-action="send"
                   ${!sel || L.awaitingAnswer || !(L.draft || '').trim() ? 'disabled' : ''}>送出</button>
               </div>
-              <div class="row row--between">
-                <span class="xs subtle">等待回答的時間也會計入，問題盡量具體。</span>
-                <button class="btn btn--ghost btn--sm" data-action="toEvidence">問完了，進入證據牆</button>
-              </div>`
+              <p class="chat__hint">時間到會自動進入證據牆，時間內可以一直問。等待回答的時間也會計入，問題盡量具體。</p>`
             }
           </div>
         </div>
@@ -871,7 +885,8 @@
     const L = lv();
     const locked = L.rankingSubmitted || L.timedOut.ranking;
     const len = L.reason.trim().length;
-    const reasonOk = len >= 40;
+    /* 不設字數門檻（受試者打得到、打不到都有可能），只要求不是空白 */
+    const reasonOk = len > 0;
     const ok = !!L.pick && reasonOk; // 勾選與理由都齊了才能送出
     const allOpen = KEYS.every((k) => L.expanded[k]);
 
@@ -945,7 +960,7 @@
               <textarea class="textarea" id="reason" ${locked ? 'disabled' : ''}
                 placeholder="請包含：一項證據、該證據與你的判斷之間的推理連結，以及目前的限制。">${esc(L.reason)}</textarea>
               <div class="counter" data-ok="${reasonOk}">
-                <span>建議 40–80 字</span>
+                <span>字數不限，把你的推理寫清楚就好</span>
                 <span class="mono">${len} 字</span>
               </div>
             </div>
@@ -970,7 +985,7 @@
                       ? '送出'
                       : !L.pick
                       ? '請先勾選一個人'
-                      : '理由至少 40 字才能送出'
+                      : '請先寫下理由'
                   }</button>`
             }
           </div>
@@ -1045,6 +1060,8 @@
   /* 回饋內容要先向伺服器索取。伺服器會確認這一關的判斷已經提交，
      未提交就拿不到正解 —— 否則這支端點會變成作答前的答案查詢介面。 */
   async function openFeedback() {
+    /* 回饋內容多、字要大，用滿版視窗；確認送出那種小對話框維持原尺寸 */
+    $('#modal').dataset.size = 'full';
     if (!feedbackData) {
       $('#modal').innerHTML = `
         <div class="modal__head"><h2 class="modal__title" id="modalTitle">此關的回饋</h2></div>
@@ -1164,6 +1181,7 @@
   }
 
   function openConfirm() {
+    delete $('#modal').dataset.size;
     $('#modal').innerHTML = `
       <div class="modal__head">
         <h2 class="modal__title" id="modalTitle">確認送出？</h2>
@@ -1184,6 +1202,7 @@
 
   function closeModal() {
     $('#overlay').hidden = true;
+    delete $('#modal').dataset.size;
     $('#modal').innerHTML = '';
   }
 
@@ -1244,7 +1263,12 @@
     L.streamText = '';
     save();
     /* 回答期間受試者可能已經進了下一階段（或下一關），那就不要動畫面 */
-    if (state.screen === 'play' && level().no === no && phase() === 'interrogation') render();
+    if (state.screen === 'play' && level().no === no) {
+      /* 時間在等回答時到了：答完才切走（見 onTimeout）。
+         此時受試者可能正在回顧六人發言，所以看的是實際階段而不是眼前的畫面 */
+      if (L.timedOut.interrogation && livePhase() === 'interrogation') await goPhase('evidence');
+      else if (phase() === 'interrogation') render();
+    }
   }
 
   /* ---- 閒置催促 ----
@@ -1435,14 +1459,14 @@
       lv().reason = ev.target.value;
       const box = ev.target.closest('.field').querySelector('.counter');
       const len = ev.target.value.trim().length;
-      box.dataset.ok = len >= 40;
+      box.dataset.ok = len > 0;
       box.lastElementChild.textContent = `${len} 字`;
       const submit = document.querySelector('[data-action="confirmSubmit"]');
       if (submit) {
-        /* 送出要同時滿足「勾了一個人」與「理由 40 字」，兩個條件分別提示 */
+        /* 送出要同時滿足「勾了一個人」與「寫了理由」，兩個條件分別提示 */
         const picked = !!lv().pick;
-        submit.disabled = !picked || len < 40;
-        submit.textContent = !picked ? '請先勾選一個人' : len >= 40 ? '送出' : '理由至少 40 字才能送出';
+        submit.disabled = !picked || len === 0;
+        submit.textContent = !picked ? '請先勾選一個人' : len > 0 ? '送出' : '請先寫下理由';
       }
     }
   });
