@@ -42,4 +42,4 @@ Files: assets/js/game/app.js、api.js、tokens.css、review.css、control/game.h
 - [x] 完成兩輪 1280×800 / 375×812 截圖與八項自評。
 - [x] 學生、研究者角度 QA；登入、越權、重複提交、草稿 XSS、提前查分與跳階安全案例。
 - [x] 更新 HANDOFF/README；交付產品理解檢查點；全測＋PHP/JS 語法與 git diff --check。
-- [ ] 遠端 push／核對：目前 GitHub DNS 失敗。程式提交與本機整合可完成；沒有既有正式站部署流程，不另建站。
+- [x] 程式提交、合併 main、main 全測及非強制 push 已完成。首次 GitHub DNS 失敗後連線恢復；沒有既有正式站部署流程，不另建站。
