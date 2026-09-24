@@ -7,8 +7,8 @@
 
 ## 系統需求
 
-- Apache + PHP ≥ 8.0（需 `pdo_mysql`、`curl`、`openssl` 擴充；XAMPP 8.0.x 可用）
-- MySQL 8.0 或 MariaDB 10.4+
+- Apache + PHP ≥ 8.0（需 `pdo_mysql`、`curl`、`openssl`、`mbstring` 擴充；XAMPP 8.0.x 可用）
+- MySQL 8.0+（資料表使用 utf8mb4_0900_ai_ci；MariaDB 需另行轉換，尚未驗證）
 - 對外連線需可達 `generativelanguage.googleapis.com`（蛋糕實驗：訊問時的 AI 角色、AI 回饋）
   與 `api.openai.com`（SDG 實驗）
 - 匯入劇本工具需 Node.js（僅開發時用，正式部署不需要）
@@ -56,7 +56,7 @@ mysql -h 127.0.0.1 -u root -p < api/schema_cake.sql
 mysql -h 127.0.0.1 -u root -p < api/seed_cake.sql
 ```
 
-拿到 repo 就能建出完整可玩的系統，不依賴 repo 以外的檔案。seed 可重複執行，不會產生重複資料。
+SQL 可建立完整內容與作答資料表；正式影片須另外補入 media/，AI 與 SurveyCake 須設定環境變數。seed 可重複執行，不會產生重複資料。
 
 **已經部署過舊版的環境**不用重建，補跑異動檔即可（可重複執行，不會動到已收的作答）：
 
@@ -140,3 +140,22 @@ copy .env.example .env
 
 - `main`：SDG 認知偏誤實驗（原系統）
 - `cake-experiment`：加入蛋糕批判思考遊戲的完整版本
+
+
+## 2026-09 小麥審閱版
+
+新回合改為「開場影片 → 六人介紹 → 調查須知」，每關影片結束後才可前進。分類與推理合併為 240 秒，最後一起提交。訊問與作答草稿存入資料庫，逾時收到的離線文字以 `ck_events.event=draft_late` 保留，**不改動已凍結的答案與分數**。
+
+首次登入未分組者依資料庫鎖定的分派序號交替控制組／實驗組；並行登入也會依序處理。既有組別與回合保留，因此既有整體人數不平衡不會自動重分。這是登入到達順序，並非預先依學號排序全名單。
+
+實驗組每關顯示解析與累計分類分數；控制組只看完成進度。六關完成再填後測，之後兩組都可看總分、偵探圖卡、六關解析、案件真相與學習回顧。滿分 36 僅來自證詞分類，理由品質以 AI 文字評語保存，不納入 36 分。`ck_feedback_audit` 留模型、提示詞版本、判準、送出的訊息與模型回覆，供研究追溯。兩組同時差在共享訊問資訊及回饋時機，不能僅靠這兩組分開估計兩個效果。
+
+既有蛋糕資料庫更新前先備份，再執行以下**只新增表**的異動（先完成既有 interrogation_chat 異動）：
+
+```sh
+mysql -h 127.0.0.1 -u USER -p DATABASE < api/migrations/2026_09_review.sql
+```
+
+新回合採 `flow_version=2`；更新前已有的回合保留原 evidence/ranking 階段以便接續。不要清空或重設既有研究資料。
+
+驗證方法見 [tests/README.md](tests/README.md)，需求與限制見 [PRODUCT.md](PRODUCT.md)，本輪證據見 [HANDOFF.md](HANDOFF.md)。本倉庫未設定自動部署或正式站網址；本機測試通過不代表已上線。SurveyCake 完成旗標沿用學生按下「我已完成」的自我回報，沒有外部提交回呼。

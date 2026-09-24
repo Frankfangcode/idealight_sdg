@@ -302,7 +302,7 @@ body {
 .suspect[aria-pressed='true'] {
   background: var(--paper-raised);
   border-color: var(--paper-text);
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  box-shadow: none;
 }
 .suspect:disabled {
   opacity: 0.45;
@@ -334,7 +334,7 @@ body {
   color: var(--paper-text);
 }
 .bubble--player {
-  box-shadow: 0 2px 8px rgba(194, 106, 2, 0.25);
+  box-shadow: none;
 }
 
 /* 選中角色的人物照，放在對話區右側：訊問時「面對著這個人」。

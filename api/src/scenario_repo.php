@@ -183,43 +183,44 @@ function ck_grading_data(int $levelNo): array
  * 內部的 ck_runs.cond 仍存語意值 —— 那是給研究者看的，不出前端。
  *
  * cond 在第一次建立時凍結：中途改組別不會讓已收的資料變成無法解讀。
- * 未設定或無法辨識的值一律歸為實驗組，並記一筆到錯誤紀錄 ——
- * 靜默分組會讓問題拖到分析階段才被發現。
+ * 未設定時以鎖定的分派序號交替控制／實驗組；無法辨識的既有組別拒絕重分。
  */
 function ck_run(string $stuId): array
 {
     $pdo = db();
-
-    $stmt = $pdo->prepare('SELECT * FROM ck_runs WHERE stu_id = ?');
-    $stmt->execute([$stuId]);
-    $run = $stmt->fetch();
-    if ($run) {
-        return $run;
-    }
-
-    $stmt = $pdo->prepare('SELECT `group` FROM students WHERE stu_id = ?');
-    $stmt->execute([$stuId]);
-    $group = (string)($stmt->fetchColumn() ?: '');
-
-    $group = trim($group);
-    if ($group === '2') {
-        $cond = 'control';
-    } elseif ($group === '1') {
-        $cond = 'experiment';
-    } else {
-        // 舊資料相容：先前用文字標記的帳號仍能正確分組
-        $isControl = stripos($group, 'control') !== false || mb_strpos($group, '控制') !== false;
-        $cond = $isControl ? 'control' : 'experiment';
-        error_log("[ck_run] {$stuId} 的 group 值為「{$group}」，非 1／2，暫歸為 {$cond}");
-    }
-
-    $pdo->prepare('INSERT INTO ck_runs (stu_id, cond) VALUES (?, ?)')->execute([$stuId, $cond]);
-    $pdo->prepare('INSERT IGNORE INTO ck_progress (stu_id, level_no, phase) VALUES (?, 1, ?)')
-        ->execute([$stuId, 'video']);
-
-    $stmt = $pdo->prepare('SELECT * FROM ck_runs WHERE stu_id = ?');
-    $stmt->execute([$stuId]);
-    return $stmt->fetch();
+    $get = $pdo->prepare('SELECT r.*, COALESCE(s.flow_version,1) AS flow_version,
+        COALESCE(s.onboarding_step,3) AS onboarding_step
+        FROM ck_runs r LEFT JOIN ck_run_settings s ON s.run_id=r.id WHERE r.stu_id=?');
+    $get->execute([$stuId]);
+    if ($run = $get->fetch()) return $run;
+    $pdo->beginTransaction();
+    try {
+        // A single locked row serializes simultaneous first logins. Recheck after acquiring it.
+        $next = (int)$pdo->query('SELECT next_group FROM ck_allocation WHERE id=1 FOR UPDATE')->fetchColumn();
+        $get->execute([$stuId]);
+        if ($run = $get->fetch()) { $pdo->commit(); return $run; }
+        $student = $pdo->prepare('SELECT `group` FROM students WHERE stu_id=? FOR UPDATE');
+        $student->execute([$stuId]);
+        $row = $student->fetch();
+        if (!$row) throw new RuntimeException('Student not found');
+        $group = trim((string)$row['group']);
+        if (in_array($group, ['2','control','控制組'], true)) $cond = 'control';
+        elseif (in_array($group, ['1','experiment','實驗組'], true)) $cond = 'experiment';
+        elseif ($group === '') {
+            if (!in_array($next,[1,2],true)) throw new RuntimeException('Allocation not initialized');
+            $group = (string)$next;
+            $cond = $next === 2 ? 'control' : 'experiment';
+            $pdo->prepare('UPDATE students SET `group`=? WHERE stu_id=?')->execute([$group,$stuId]);
+            $pdo->prepare('UPDATE ck_allocation SET next_group=? WHERE id=1')->execute([$next===2?1:2]);
+        } else throw new RuntimeException('Unknown existing group; researcher must confirm');
+        $pdo->prepare('INSERT INTO ck_runs (stu_id,cond) VALUES (?,?)')->execute([$stuId,$cond]);
+        $id=(int)$pdo->lastInsertId();
+        $pdo->prepare('INSERT INTO ck_run_settings(run_id) VALUES (?)')->execute([$id]);
+        $pdo->prepare('INSERT IGNORE INTO ck_progress(stu_id,level_no,phase) VALUES (?,1,?)')->execute([$stuId,'video']);
+        $pdo->commit();
+        $get->execute([$stuId]);
+        return $get->fetch();
+    } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $e; }
 }
 
 /**
@@ -227,7 +228,7 @@ function ck_run(string $stuId): array
  *
  * 2026-09-17 會議後這不再是唯一的操弄變項：主要操弄改為訊問時 AI 角色之間
  * 是否共享問話紀錄（見 interrogation.php）。回饋時機的新設計（實驗組每關即時、
- * 控制組六關結束後統一給）尚未實作，這裡暫時維持原行為。
+ * 控制組後測完成後統一給）由 ck_feedback / ck_results 的門檻實作。
  * demo 原本的條件是 condition==='experiment' && session==='post'，
  * 因為當時設計是遊戲跑兩輪、只有後測輪給回饋；現行設計是遊戲跑一輪、
  * 前後各接一份 SurveyCake 問卷，所以 session 條件移除。
@@ -248,6 +249,7 @@ function ck_phase_seconds(string $phase): int
         }
     }
     $all = ck_config('PHASE_SECONDS');
+    if ($phase === 'combined') return (int)($all['evidence'] ?? 60) + (int)($all['ranking'] ?? 180);
     return (int)($all[$phase] ?? 0);
 }
 

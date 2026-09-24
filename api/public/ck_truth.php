@@ -8,9 +8,11 @@
  */
 
 require_once __DIR__ . '/../src/api.php';
+require_once __DIR__ . '/../src/review.php';
 
 $stuId = ck_require_stu_id();
 ck_run($stuId);
+if (!ck_post_completed($stuId)) ck_fail('完成後測問卷後才會公布真相',409);
 
 $stmt = db()->prepare('SELECT level_no FROM ck_progress WHERE stu_id = ?');
 $stmt->execute([$stuId]);

@@ -14,7 +14,7 @@ USE idealightsdg;
 -- 因此 stu_id 的唯一約束是程式邏輯的一部分，不可省略。
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS students (
-  stu_id  VARCHAR(20) NOT NULL,
+  stu_id  VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
   name    VARCHAR(50) NOT NULL,
   gender  TINYINT     NOT NULL DEFAULT 3,  -- register.html: 1=男, 2=女；register.php 未選時預設 3
   age     INT              NULL,

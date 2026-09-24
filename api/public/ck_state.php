@@ -11,6 +11,7 @@
  */
 
 require_once __DIR__ . '/../src/api.php';
+require_once __DIR__ . '/../src/review.php';
 
 $stuId = ck_require_stu_id();
 $run   = ck_run($stuId);
@@ -26,6 +27,11 @@ $finished = $levelNo > ck_level_count();
 $payload = [
     'success'    => true,
     'stuId'      => $stuId,
+    'flowVersion' => (int)$run['flow_version'],
+    'onboardingStep' => (int)$run['onboarding_step'],
+    'guideVideo' => ['src'=>'media/intro-guide.mp4'] + ck_video_progress($run,0),
+    'videoProgress' => ck_video_progress($run,$levelNo),
+    'postCompleted' => ck_post_completed($stuId),
     // 刻意不回傳 cond：受試者不該知道自己在哪一組。
     // 前端只需要「這一關結束後有沒有詳細回饋」這個布林值。
     'hasAiFeedback' => ck_has_ai_feedback($run),
@@ -38,7 +44,11 @@ $payload = [
     'progress'   => ['levelNo' => $levelNo, 'phase' => $progress['phase'], 'finished' => $finished],
 ];
 
+if (ck_has_ai_feedback($run)) $payload['totalScore'] = ck_score($stuId);
+$payload['config']['PHASE_SECONDS']['combined'] = ck_phase_seconds('combined');
+
 if (!$finished) {
+    $payload['drafts'] = ck_drafts($run,$levelNo);
     $payload['level'] = ck_level_payload($levelNo);
 
     // 該關的訊問對話（重整後要能還原）。只回角色、發話方與內容，

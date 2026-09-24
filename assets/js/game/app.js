@@ -17,21 +17,24 @@
 
   /* ---------------------------------------------------------------- 常數 */
 
-  const PHASES = ['video', 'testimony', 'interrogation', 'evidence', 'ranking', 'feedback'];
+  let PHASES = ['video', 'testimony', 'interrogation', 'evidence', 'ranking', 'feedback'];
 
   const PHASE_META = {
     video: { label: '劇情影片', icon: '▶', eyebrow: 'PHASE 1 ／ VIDEO' },
     testimony: { label: '六人發言', icon: '❝', eyebrow: 'PHASE 2 ／ TESTIMONY' },
     interrogation: { label: '訊問', icon: '☰', eyebrow: 'PHASE 3 ／ INTERROGATION' },
     evidence: { label: '證據牆', icon: '▤', eyebrow: 'PHASE 4 ／ EVIDENCE REVIEW' },
+    combined: { label: '分類與推理', icon: '▤' },
     ranking: { label: '推理', icon: '◎', eyebrow: 'PHASE 5 ／ JUDGEMENT' },
     feedback: { label: '回饋', icon: '✦', eyebrow: 'PHASE 6 ／ FEEDBACK' },
   };
 
-  const TAB_PHASES = ['video', 'testimony', 'interrogation', 'evidence'];
+  let TAB_PHASES = ['video', 'testimony', 'interrogation', 'evidence'];
   /* 啟動時才知道有哪些角色，所以不能在載入階段就從 SCENARIO 取 */
   let KEYS = [];
-  const STORAGE_KEY = 'ck-ui-state';
+  const STORAGE_KEY = 'ck-ui-state-v2';
+  let draftTimer=null;
+  let draftQueue=Promise.resolve();
 
   /* ---------------------------------------------------------------- 狀態 */
 
@@ -61,6 +64,8 @@
       phaseIndex: 0, // 目前正在看的階段
       maxPhaseIndex: 0, // 實際走到的最遠階段；回頭瀏覽不會倒退，只有這個變大才需要通知後端
       timeLeft: {},
+      deadlines: {},
+      draftRevision: {},
       timedOut: {},
     };
   }
@@ -102,6 +107,7 @@
     /* 重整當下若正在等回答，那個請求已經斷了；伺服器仍會把回答收完存檔 */
     L.awaitingAnswer = false;
     L.streamText = '';
+    L.videoWatched = !!s.videoProgress?.completed;
 
     /* 證據牆：有紀錄就代表已提交並鎖定 */
     const placements = s.placements || {};
@@ -117,6 +123,7 @@
     }
 
     /* 進度已經走到 video 之後，代表影片與六張卡都看過了 */
+    L.videoWatched ||= !!s.videoProgress?.completed;
     if (L.phaseIndex >= 1) L.videoWatched = true;
     if (L.phaseIndex >= 2) KEYS.forEach((k) => (L.read[k] = true));
 
@@ -136,17 +143,19 @@
          跑到底，由 onTimeout 送進證據牆。逾時的提問後端本來就會拒收。 */
       L.timedOut[p] = false;
       L.timeLeft[p] = Math.max(1, s.progress.remaining);
-    } else if (!L.timedOut[p]) {
+    } else {
+      L.timedOut[p] = false;
       /* 證據牆／推理逾時要走 onTimeout 強制送出當下的作答，
          所以留 1 秒讓計時器自己跑到底，而不是直接標成已逾時 */
       L.timeLeft[p] = Math.max(1, s.progress.remaining);
     }
+    L.deadlines[p]=Date.now()+L.timeLeft[p]*1000;
   }
 
   /* 只存純介面狀態。作答與進度的權威在伺服器，這裡掉了也不影響資料。 */
   function save() {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ stuId: SERVER.stuId, levels: state.levels }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ stuId: SERVER.stuId, levels: state.levels }));
     } catch (e) {
       /* 無痕模式或配額滿：忽略，重整時改由伺服器還原 */
     }
@@ -154,7 +163,7 @@
 
   function loadUi() {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       /* 換人登入時舊的介面狀態要丟掉，否則會看到別人翻開過的卡片 */
@@ -164,6 +173,72 @@
     } catch (e) {
       return null;
     }
+  }
+
+  function draftPayload(p) {
+    const L=lv();
+    return p==='interrogation'?{selected:L.selected,draft:L.draft}:{placements:L.placements,pick:L.pick,reason:L.reason};
+  }
+  function markDraft() {
+    if(state.screen!=='play' || isReview())return;
+    const p=livePhase();if(!['interrogation','combined','evidence','ranking'].includes(p))return;
+    const L=lv();if(L.rankingSubmitted)return;
+    L.draftRevision[p]=Math.max(Date.now(),(L.draftRevision[p]||0)+1);
+    save();const status=$('#saveStatus');if(status)status.textContent='正在保存…';
+    clearTimeout(draftTimer);draftTimer=setTimeout(()=>flushDraft().catch(()=>{}),500);
+  }
+  function flushDraft() {
+    clearTimeout(draftTimer);
+    if(state.screen!=='play')return draftQueue;
+    const p=livePhase(),L=lv(),no=level().no,revision=L.draftRevision[p];
+    if(!revision || L.rankingSubmitted)return draftQueue;
+    const payload=JSON.parse(JSON.stringify(draftPayload(p)));
+    const request=draftQueue.catch(()=>{}).then(async()=>{
+      const r=await CK.draft(no,p,payload,revision);
+      const status=$('#saveStatus');
+      if(status && level().no===no && L.draftRevision[p]===revision)status.textContent=r.expired?'時間已到，保留最後保存的草稿':'草稿已保存';
+      return r;
+    });
+    draftQueue=request;
+    request.catch(()=>{const status=$('#saveStatus');if(status)status.textContent='尚未同步，已保留在這台裝置。請檢查連線後重試。';});
+    return request;
+  }
+  function restoreDrafts(s) {
+    const L=lv();
+    for(const [p,d] of Object.entries(s.drafts||{})) {
+      if(d.revision >= (L.draftRevision[p]||0)) {
+        if(p==='interrogation') {L.draft=d.payload.draft;L.selected=d.payload.selected;}
+        else if(!L.rankingSubmitted) {L.placements=d.payload.placements;L.pick=d.payload.pick;L.reason=d.payload.reason;}
+        L.draftRevision[p]=d.revision;
+      }
+    }
+  }
+  async function syncPastDrafts(finished=false) {
+    // Keep offline text from earlier stages as unsubmitted research records.
+    const pending=loadUi();
+    if(!pending)return;
+    for(let i=0;i<pending.length;i++) {
+      const L=pending[i];
+      if(!L || i>state.levelIndex)continue;
+      for(const [p,revision] of Object.entries(L.draftRevision||{})) {
+        if(!finished && i===state.levelIndex && PHASES.indexOf(p)>=reachedIndex())continue;
+        const payload=p==='interrogation'?{selected:L.selected??null,draft:L.draft||''}:{placements:L.placements||{},pick:L.pick??null,reason:L.reason||''};
+        await CK.draft(SCENARIO.levels[i].no,p,payload,revision);
+      }
+    }
+  }
+  async function submitCombined() {
+    syncReason();
+    const L=lv();
+    const ok=await guard(async()=>{
+      // Submission carries the full answer and is idempotent; a failed draft request must not block retry.
+      await flushDraft().catch(()=>{});
+      await CK.submitResponse(level().no,L.placements,L.pick,L.reason);
+      L.evidenceSubmitted=L.rankingSubmitted=true;
+      L.maxPhaseIndex=L.phaseIndex=PHASES.indexOf('feedback');
+      closeModal();save();
+    },'作答尚未送出，請重試');
+    if(ok)render();else {render();toast('作答尚未送出，請按「重試保存本關作答」。','error');}
   }
 
   /* 送出前後統一處理載入中與錯誤，避免每個 handler 都寫一次 try/catch */
@@ -291,6 +366,7 @@
     const d = phaseDuration(p);
     if (!d) return;
     if (lv().timeLeft[p] === undefined) lv().timeLeft[p] = d;
+    if(!lv().deadlines[p])lv().deadlines[p]=Date.now()+lv().timeLeft[p]*1000;
   }
 
   function startTicker() {
@@ -300,7 +376,7 @@
     ticker = setInterval(() => {
       const L = lv();
       if (L.timedOut[p] || L.timeLeft[p] === undefined) return stopTicker();
-      L.timeLeft[p] -= 1;
+      L.timeLeft[p] = Math.max(0,Math.ceil((L.deadlines[p]-Date.now())/1000));
       if (L.timeLeft[p] <= 0) {
         L.timeLeft[p] = 0;
         L.timedOut[p] = true;
@@ -326,7 +402,8 @@
     const left = lv().timeLeft[p] ?? total;
     node.querySelector('.timer__text').textContent = mmss(left);
     node.querySelector('.timer__fill').style.width = `${(left / total) * 100}%`;
-    node.dataset.state = left <= 10 ? 'danger' : left <= 30 ? 'warn' : 'ok';
+    node.dataset.state = left <= 60 ? 'danger' : 'ok';
+    const hint=$('#deadlineHint');if(hint)hint.hidden=left>15;
   }
 
   /* 計時到期一律強制送出當下的作答。
@@ -338,14 +415,17 @@
       /* 訊問沒有「問完了」的出口，時間到才自動進證據牆。
          期限前送出的問題要讓它答完：還在等回答就先鎖輸入框，
          由 sendQuestion 收尾時接手切換。 */
-      toast('訊問時間已到，進入證據牆', 'warn');
+      await flushDraft().catch(()=>{});
+      toast('訊問時間已到，正在保存並進入作答', 'warn');
       if (L.awaitingAnswer) {
         render();
         return;
       }
-      await goPhase('evidence');
+      await goPhase(SERVER.flowVersion>=2?'combined':'evidence');
       return;
     }
+
+    if (p === 'combined') {closeModal();await submitCombined();return;}
 
     if (p === 'evidence') {
       toast('選取時間已到，分類結果已鎖定', 'warn');
@@ -380,7 +460,7 @@
     const L = lv();
     const reached = reachedIndex();
     if (idx > reached) {
-      const ok = await guard(() => CK.advance(level().no, p), '進度保存失敗');
+      const ok = await guard(async () => {await flushDraft();await CK.advance(level().no, p);}, '進度保存失敗');
       if (!ok) return;
       L.maxPhaseIndex = idx;
     } else {
@@ -398,10 +478,11 @@
     feedbackData = null;
 
     const ok = await guard(async () => {
+      await syncPastDrafts();
       const r = await CK.nextLevel(level().no);
       if (r.finished) {
-        await CK.loadTruth();
-        state.screen = 'truth';
+        location.href='survey.html?kind=post';
+        return;
       } else {
         await CK.refresh();
         state.levelIndex = r.levelNo - 1;
@@ -445,12 +526,12 @@
     const showTimer = total > 0 && !lv().timedOut[live];
     const timerLabel = review ? `${PHASE_META[live].label}剩餘` : '剩餘時間';
     right.innerHTML = `
-      <span class="badge badge--phase">${PHASE_META[p].label}</span>
+      <span class="score-progress">${hasAiFeedback()?`分類得分 ${SERVER.totalScore ?? 0}/36`:`已完成 ${state.levelIndex}/6 關`}</span>
       ${review ? '<span class="badge">回顧中</span>' : ''}
       ${
         showTimer
           ? `<span class="timer" id="timer" role="timer" aria-label="${timerLabel}" data-label="${timerLabel}"
-               data-state="${left <= 10 ? 'danger' : left <= 30 ? 'warn' : 'ok'}">
+               data-state="${left <= 60 ? 'danger' : 'ok'}">
                <span class="timer__text">${mmss(left)}</span>
                <span class="timer__bar"><span class="timer__fill" style="width:${(left / total) * 100}%"></span></span>
              </span>`
@@ -526,45 +607,50 @@
   /* == 開場 == */
 
   function viewSetup() {
-    const roster = SCENARIO.characters
-      .map((c) => `<div class="roster__item">${avatar(c.key)}${who(c.key)}</div>`)
-      .join('');
+    const step = SERVER.onboardingStep || 0;
+    if (step === 0) return `<section class="onboarding stack stack--lg">
+      <h1 class="hero__title">觀看調查說明</h1>
+      <p class="muted">${esc(SCENARIO.title)}</p>
+      ${videoPlayer('../' + SERVER.guideVideo.src)}
+      <p class="video-status" id="videoStatus" role="status">看完影片後，就能認識這次案件的六位角色。</p>
+      <div class="actions"><button class="btn btn--primary btn--lg" data-action="onboardingNext" ${SERVER.guideVideo.completed ? '' : 'hidden'}>誰該負責？</button></div>
+    </section>`;
+    if (step === 1) return `<section class="onboarding stack stack--lg">
+      <h1 class="hero__title">六個人，六種說法</h1>
+      <p class="hero__lead">${esc(SCENARIO.brief.question)}</p>
+      <div class="roster roster--intro">${SCENARIO.characters.map(c => `<div class="roster__item"><img class="roster__photo" src="../assets/img/game/char_${c.key}.jpg" alt="${esc(c.name)}" />${who(c.key)}</div>`).join('')}</div>
+      <div class="actions"><button class="btn btn--primary btn--lg" data-action="onboardingNext">調查須知</button></div>
+    </section>`;
+    return `<section class="onboarding stack stack--lg">
+      <h1 class="hero__title">調查須知</h1>
+      <p>六個關卡，一起釐清蛋糕消失的經過。</p>
+      <ol class="instructions">
+        <li><strong>觀看劇情、閱讀六人的發言</strong><p>先了解這一關的線索，再開始訊問。</p></li>
+        <li><strong>訊問六位角色</strong><p>共 ${mmss(INTERROGATION.seconds)}，可自由打字提問。等待回答也會計時，未送出的文字會另外保存。</p></li>
+        <li><strong>分類證詞，寫下推理</strong><p>共 ${mmss(PHASE_SECONDS.combined || 240)}。上方分類、下方選人並說明理由，送出前都可以修改。</p></li>
+      </ol>
+      <p class="muted">作答會自動保存，重新登入可接續進度。離開或重整頁面不會暫停倒數；時間到會保存當下作答。完成六關後，請填寫後測問卷。</p>
+      <div class="actions"><button class="btn btn--primary btn--lg" data-action="start">開始調查</button></div>
+    </section>`;
+  }
 
-    return `
-      <div class="setup">
-        <section class="hero">
-          <span class="hero__eyebrow">CASE FILE</span>
-          <h1 class="hero__title">${esc(SCENARIO.title)}</h1>
-          <p class="hero__sub">${esc(SCENARIO.subtitle)}</p>
-          <p class="hero__lead">${esc(SCENARIO.brief.lead)}</p>
-          <p class="hero__body">${esc(SCENARIO.brief.body)}</p>
-          <p class="hero__q">${esc(SCENARIO.brief.question)}</p>
-          <div class="roster">${roster}</div>
-        </section>
+  function videoPlayer(src) {
+    return `<div class="video-wrap"><video id="introVideo" controls preload="metadata" playsinline src="${esc(src)}"></video>
+      <div class="video-ph" id="videoPh" hidden><strong>影片暫時無法播放</strong><p>請先重試；若仍無法播放，請告知施測人員。</p><button class="btn btn--ghost" data-action="retryVideo">重新載入影片</button></div></div>`;
+  }
 
-        <aside class="panel">
-          <div class="panel__head"><h2 class="panel__title">開始之前</h2></div>
-          <div class="panel__body stack stack--lg">
-            <div class="field">
-              <span class="field__label">調查流程</span>
-              <ul class="checklist">
-                <li><span>六個關卡，每一關都是同一個案子的不同面向</span></li>
-                <li><span>每關依序是：劇情影片 → 六人發言 → 訊問 → 證據牆 → 推理</span></li>
-                <li><span>訊問、證據牆、推理三個階段有時間限制，時間到會自動保存當下的作答</span></li>
-                <li><span>訊問時六個人都可以問，用打字提問、不限次數，只限時間</span></li>
-              </ul>
-            </div>
-
-            <div class="note">
-              <span>作答會即時保存。中途關掉瀏覽器或不小心重新整理，
-              重新登入後會回到你離開的地方，不用從頭開始。</span>
-            </div>
-
-            <button class="btn btn--primary btn--lg btn--block" data-action="start">開始調查</button>
-          </div>
-        </aside>
-      </div>
-    `;
+  async function startInvestigation() {
+    const ok=await guard(async()=>{
+      await CK.onboarding(3);
+      $('#main').innerHTML='<div class="loading-screen"><h1>正在準備調查</h1><p>Now Loading</p><progress id="loadProgress" max="7" value="0" aria-label="載入進度"></progress></div>';
+      let completed=0;
+      const done=()=>{const n=$('#loadProgress');if(n)n.value=++completed;};
+      await Promise.all([CK.refresh().then(done), ...KEYS.map(k=>new Promise(resolve=>{
+        const img=new Image(); img.onload=img.onerror=()=>{done();resolve();};img.src=`../assets/img/game/avatar_${k}.jpg`;
+      }))]);
+      state.screen='play';save();render();
+    },'開始調查失敗');
+    if(!ok)render();
   }
 
   /* == 階段外殼 == */
@@ -579,6 +665,8 @@
         ? viewTestimony()
         : p === 'interrogation'
         ? viewInterrogation()
+        : p === 'combined'
+        ? viewCombined()
         : p === 'evidence'
         ? viewEvidence()
         : p === 'ranking'
@@ -593,11 +681,9 @@
     return `
       <div class="phase-head">
         <div>
-          <span class="phase-head__eyebrow">${PHASE_META[p].eyebrow}</span>
           <h1 class="phase-head__title">第 ${L.no} 關｜${esc(L.name)}</h1>
         </div>
-        <p class="phase-head__desc"><strong class="muted">本關技能　</strong>${esc(L.skills)}<br />
-        <strong class="muted">本關任務　</strong>${esc(L.task)}</p>
+        <p class="phase-head__desc"><strong class="muted">本關任務　</strong>${esc(L.task)}</p>
       </div>
       ${draft}
       ${body}
@@ -607,40 +693,11 @@
   /* == 影片（UI-01） == */
 
   function viewVideo() {
-    const L = lv();
-    const v = level().video;
-    return `
-      <div class="stack stack--lg">
-        <div class="video-wrap">
-          <video id="introVideo" controls preload="metadata" playsinline>
-            <source src="${esc(v.src)}" type="video/mp4" />
-          </video>
-          <div class="video-ph" id="videoPh">
-            <span class="video-ph__icon" aria-hidden="true">🎬</span>
-            <strong>第 ${level().no} 關的開頭影片尚未放入</strong>
-            <p class="small muted" style="max-width:46ch">
-              把這一關的影片存成下面這個路徑，重新整理頁面就會直接播放。
-              腳本在下方可以展開複製。
-            </p>
-            <code class="video-ph__path">${esc(v.src.replace('../', ''))}</code>
-          </div>
-        </div>
-
-        <div class="row row--between">
-          <p class="small muted">正式版會記錄影片開始、暫停、播放進度與觀看完成時間，重新整理不重置進度。</p>
-          <button class="btn btn--primary" data-action="videoDone">
-            ${L.videoWatched ? '已看完，回到發言' : '我已看完劇情，看六人發言'}
-          </button>
-        </div>
-
-        <details class="narration" ${L.videoWatched ? '' : 'open'}>
-          <summary class="small muted" style="cursor:pointer;margin-bottom:var(--sp-3)">
-            第 ${level().no} 關開頭影片腳本（給你做影片用）
-          </summary>
-          <div style="white-space:pre-wrap">${esc(v.script)}</div>
-        </details>
-      </div>
-    `;
+    return `<div class="stack stack--lg">
+      ${videoPlayer(level().video.src)}
+      <p class="video-status" id="videoStatus" role="status">請看完本關影片，再閱讀六人的發言。</p>
+      <div class="actions"><button class="btn btn--primary btn--lg" data-action="videoDone" ${lv().videoWatched?'':'hidden'}>看六人的發言</button></div>
+    </div>`;
   }
 
   /* == 證詞閱讀 == */
@@ -681,11 +738,12 @@
         <div class="row row--between">
           <p class="small muted">依序點開六個人各自掌握的資訊。已讀 <strong class="mono">${readCount}/6</strong>。<br />
             讀過的卡片再點一下可以翻回角色介紹，想看說法就再點一次。</p>
-          <button class="btn btn--primary" data-action="toInterrogation" ${readCount < 6 ? 'disabled' : ''}>
-            ${readCount < 6 ? `還有 ${6 - readCount} 張未讀` : '進入訊問階段'}
-          </button>
+
         </div>
         <div class="tgrid">${cards}</div>
+        <div class="actions">          <button class="btn btn--primary" data-action="toInterrogation" ${readCount < 6 ? 'disabled' : ''}>
+            ${readCount < 6 ? `還有 ${6 - readCount} 張未讀` : '進入訊問階段'}
+          </button></div>
       </div>
     `;
   }
@@ -781,7 +839,7 @@
                 <button class="btn btn--primary" data-action="send"
                   ${!sel || L.awaitingAnswer || !(L.draft || '').trim() ? 'disabled' : ''}>送出</button>
               </div>
-              <p class="chat__hint">時間到會自動進入證據牆，時間內可以一直問。等待回答的時間也會計入，問題盡量具體。</p>`
+              <label class="sr-only" for="askInput">輸入訊問問題</label><p class="save-status" id="saveStatus" role="status">草稿已保存</p><p id="deadlineHint" class="deadline-hint" role="status" ${(L.timeLeft.interrogation??150)>15?'hidden':''}>剩下 15 秒，想問的問題請按送出；未送出的文字會另存草稿。</p><p class="chat__hint">時間到會自動進入證據牆，時間內可以一直問。等待回答的時間也會計入，問題盡量具體。</p>`
             }
           </div>
         </div>
@@ -793,7 +851,7 @@
 
   function viewEvidence() {
     const L = lv();
-    const locked = isReview() || L.evidenceSubmitted || L.timedOut.evidence;
+    const locked = isReview() || L.evidenceSubmitted || L.timedOut[livePhase()];
     const placeOf = (key) => L.placements[key] || 'unclassified';
     const inZone = (z) => KEYS.filter((k) => placeOf(k) === z);
     const unclassified = inZone('unclassified');
@@ -865,9 +923,9 @@
             ${
               locked
                 ? '<span class="badge badge--flaw">已鎖定</span>'
-                : `<button class="btn btn--primary" data-action="submitEvidence"
+                : `<button class="btn btn--primary" data-action="${phase()==='combined'?'scrollReason':'submitEvidence'}"
                     ${unclassified.length > 0 ? 'disabled' : ''}>
-                    ${unclassified.length > 0 ? `還有 ${unclassified.length} 張未分類` : '提交分類，進入推理'}
+                    ${unclassified.length > 0 ? `還有 ${unclassified.length} 張未分類` : phase()==='combined'?'找出誰最不合理':'提交分類，進入推理'}
                   </button>`
             }
           </div>
@@ -879,15 +937,26 @@
     `;
   }
 
+  function viewCombined() {
+    return `<div class="combined stack stack--lg">
+      <p class="save-status" id="saveStatus" role="status">草稿已保存</p>
+      <p id="deadlineHint" class="deadline-hint" role="status" ${(lv().timeLeft.combined??240)>15?'hidden':''}>剩下 15 秒，請檢查作答；時間到會自動保存目前內容。</p>
+      ${viewEvidence()}
+      <div class="actions"><button class="btn btn--ghost" data-action="scrollReason">找出誰最不合理</button></div>
+      ${viewRanking()}
+      ${lv().timedOut.combined&&!lv().rankingSubmitted?'<div class="actions"><button class="btn btn--primary" data-action="retryResponse">重試保存本關作答</button></div>':''}
+    </div>`;
+  }
+
   /* == 選出最不合理的人與理由（UI-04） == */
 
   function viewRanking() {
     const L = lv();
-    const locked = L.rankingSubmitted || L.timedOut.ranking;
+    const locked = isReview() || L.rankingSubmitted || L.timedOut[livePhase()];
     const len = L.reason.trim().length;
     /* 不設字數門檻（受試者打得到、打不到都有可能），只要求不是空白 */
     const reasonOk = len > 0;
-    const ok = !!L.pick && reasonOk; // 勾選與理由都齊了才能送出
+    const ok = !!L.pick && reasonOk && (phase()!=='combined'||KEYS.every(k=>['reasonable','flaw'].includes(L.placements[k]))); // 勾選與理由都齊了才能送出
     const allOpen = KEYS.every((k) => L.expanded[k]);
 
     /* 回顧區：只顯示「系統給過他看的材料」——說法與他追問到的回答。
@@ -935,7 +1004,7 @@
     }).join('');
 
     return `
-      <div class="rank">
+      <div class="rank" id="reasoning">
         <div class="panel">
           <div class="panel__head">
             <h2 class="panel__title">選出說法最不合理的人</h2>
@@ -982,7 +1051,7 @@
                     ok ? '' : 'disabled'
                   }>${
                     ok
-                      ? '送出'
+                      ? '送出本關作答'
                       : !L.pick
                       ? '請先勾選一個人'
                       : '請先寫下理由'
@@ -1091,7 +1160,7 @@
   function renderFeedback() {
     const L = lv();
     const isLast = state.levelIndex === SCENARIO.levels.length - 1;
-    const nextLabel = isLast ? '確認，公布真相' : '確認，進入下一關';
+    const nextLabel = isLast ? '完成調查，前往後測問卷' : '確認，進入下一關';
 
     let body;
     /* 實驗組的逐則對照需要 testimonies 與 evidence。回應若殘缺就退回完成訊息，
@@ -1114,6 +1183,7 @@
     } else {
       /* UI-06 實驗組回饋。正解與判定理由到這一刻才第一次進到前端。 */
       const score = scoreOf();
+      SERVER.totalScore=feedbackData.totalScore;
       const items = KEYS.map((k) => {
         const t = feedbackData.testimonies[k];
         const got = (feedbackData.evidence[k] && feedbackData.evidence[k].zone) || 'unclassified';
@@ -1142,7 +1212,7 @@
         ? `<div class="fb__opening">
              <div class="row" style="margin-bottom:var(--sp-2)">
                <span class="badge badge--group">AI 教學回饋</span>
-               <span class="xs subtle">本關技能：${esc(level().skills)}</span>
+               <span class="xs subtle">推理理由評語</span>
              </div>
              <div style="white-space:pre-wrap">${esc(feedbackData.ai)}</div>
            </div>`
@@ -1160,6 +1230,7 @@
 
         <div class="stack stack--sm">${items}</div>
 
+        <p class="cumulative-score">目前分類累積得分：${SERVER.totalScore}/36</p>
         <div class="note note--ai"><span><strong>階段性結論　</strong>${esc(
           feedbackData.conclusion || ''
         )}</span></div>
@@ -1189,7 +1260,7 @@
       </div>
       <div class="modal__body">
         <p>送出後，本關的選擇與理由會鎖定，不能再修改。</p>
-        <p class="small muted">系統會先保存答案，再開啟對應組別的回饋視窗。</p>
+        <p class="small muted">系統會先保存答案，再顯示本關完成畫面。</p>
       </div>
       <div class="modal__foot">
         <button class="btn btn--ghost" data-action="closeModal">再檢查一下</button>
@@ -1230,6 +1301,7 @@
 
     (L.chat[key] = L.chat[key] || []).push({ role: 'player', content: text });
     L.draft = '';
+    markDraft();
     L.awaitingAnswer = true;
     L.streamText = '';
     stopIdle();
@@ -1250,12 +1322,14 @@
       /* 順便跟伺服器對時：前端倒數會因為分頁被放到背景而變慢 */
       if (done.remaining != null && !L.timedOut.interrogation) {
         L.timeLeft.interrogation = Math.max(0, Math.ceil(done.remaining));
+        L.deadlines.interrogation=Date.now()+L.timeLeft.interrogation*1000;
       }
     } catch (e) {
       /* 沒問成功就把問題放回輸入框，不要讓受試者重打。
          409 多半是時間到 —— 伺服器的鐘比前端準，以它為準。 */
       L.chat[key].pop();
       L.draft = text;
+      markDraft();
       toast(`訊問失敗：${e.message}`, 'error');
     }
 
@@ -1266,7 +1340,7 @@
     if (state.screen === 'play' && level().no === no) {
       /* 時間在等回答時到了：答完才切走（見 onTimeout）。
          此時受試者可能正在回顧六人發言，所以看的是實際階段而不是眼前的畫面 */
-      if (L.timedOut.interrogation && livePhase() === 'interrogation') await goPhase('evidence');
+      if (L.timedOut.interrogation && livePhase() === 'interrogation') await goPhase(SERVER.flowVersion>=2?'combined':'evidence');
       else if (phase() === 'interrogation') render();
     }
   }
@@ -1311,13 +1385,14 @@
 
     switch (a) {
       /* ---- 開場 ---- */
-      case 'start': {
-        state.screen = 'play';
-        ensureTimer();
-        save();
-        render();
-        break;
-      }
+      case 'start':
+        startInvestigation(); break;
+      case 'onboardingNext':
+        guard(async()=>{ const r=await CK.onboarding(SERVER.onboardingStep+1);SERVER.onboardingStep=r.step;render(); },'進度保存失敗'); break;
+      case 'retryVideo':
+        $('#videoPh').hidden=true;$('#introVideo').load();break;
+      case 'retryVideoSave':
+        $('#introVideo').dispatchEvent(new Event('ended'));break;
 
       /* ---- 頁籤 ---- */
       case 'tab':
@@ -1326,7 +1401,7 @@
 
       /* ---- 影片 ---- */
       case 'videoDone':
-        L.videoWatched = true;
+        if (!L.videoWatched) break;
         goPhase('testimony');
         break;
 
@@ -1354,6 +1429,7 @@
       case 'pick':
         if (L.awaitingAnswer) break;
         L.selected = btn.dataset.key;
+        markDraft();
         save();
         render();
         break;
@@ -1361,15 +1437,22 @@
         sendQuestion();
         break;
       case 'toEvidence':
-        goPhase('evidence');
+        goPhase(SERVER.flowVersion>=2?'combined':'evidence');
         break;
 
       /* ---- 證據牆 ---- */
       case 'assign':
+        if(isReview()||L.evidenceSubmitted||L.timedOut[livePhase()])break;
+        syncReason();
         L.placements[btn.dataset.key] = btn.dataset.to;
+        markDraft();
         save();
         render();
         break;
+      case 'scrollReason':
+        $('#reasoning')?.scrollIntoView({block:'start'}); break;
+      case 'retryResponse':
+        submitCombined();break;
       case 'submitEvidence':
         /* goPhase 內部也走 guard；不能包在同一個 guard 裡，busy 旗標會擋掉自己 */
         guard(async () => {
@@ -1403,7 +1486,9 @@
       case 'pickWorst': {
         syncReason();
         const key = btn.dataset.key;
+        if(isReview()||L.rankingSubmitted||L.timedOut[livePhase()])break;
         L.pick = L.pick === key ? null : key; // 再點一次可以取消勾選
+        markDraft();
         save();
         render();
         break;
@@ -1413,6 +1498,7 @@
         openConfirm();
         break;
       case 'doSubmit':
+        if(phase()==='combined'){submitCombined();break;}
         /* 同 submitEvidence：goPhase 要在 guard 結束後才能呼叫 */
         guard(async () => {
           await CK.submitJudgment(level().no, L.pick, L.reason);
@@ -1450,6 +1536,7 @@
     if (ev.target.id === 'askInput') {
       /* 不重繪（會吃掉輸入法的組字狀態），只同步草稿與送出鈕 */
       lv().draft = ev.target.value;
+      markDraft();
       const send = document.querySelector('[data-action="send"]');
       if (send) send.disabled = !ev.target.value.trim() || lv().awaitingAnswer;
       armIdle(); // 正在打字就不算閒置
@@ -1457,6 +1544,7 @@
     }
     if (ev.target.id === 'reason') {
       lv().reason = ev.target.value;
+      markDraft();
       const box = ev.target.closest('.field').querySelector('.counter');
       const len = ev.target.value.trim().length;
       box.dataset.ok = len > 0;
@@ -1465,8 +1553,8 @@
       if (submit) {
         /* 送出要同時滿足「勾了一個人」與「寫了理由」，兩個條件分別提示 */
         const picked = !!lv().pick;
-        submit.disabled = !picked || len === 0;
-        submit.textContent = !picked ? '請先勾選一個人' : len > 0 ? '送出' : '請先寫下理由';
+        submit.disabled = !picked || len === 0 || (phase()==='combined'&&!KEYS.every(k=>['reasonable','flaw'].includes(lv().placements[k])));
+        submit.textContent = !picked ? '請先勾選一個人' : len > 0 ? '送出本關作答' : '請先寫下理由';
       }
     }
   });
@@ -1526,9 +1614,11 @@
 
     /* 證據牆 */
     const drop = ev.target.closest('[data-drop]');
-    if (drop && phase() === 'evidence' && !isReview() && !L.evidenceSubmitted && !L.timedOut.evidence) {
+    if (drop && ['evidence','combined'].includes(phase()) && !isReview() && !L.evidenceSubmitted && !L.timedOut[livePhase()]) {
       ev.preventDefault();
+      syncReason();
       L.placements[dragKey] = drop.dataset.drop;
+      markDraft();
       dragKey = null;
       save();
       render();
@@ -1540,36 +1630,31 @@
   /* -------------------------------------------------- 影片佔位自動偵測 */
 
   function wireVideo() {
-    const v = $('#introVideo');
-    const ph = $('#videoPh');
-    if (!v || !ph || v.dataset.wired) return;
-    v.dataset.wired = 'true';
-
-    const hide = () => {
-      ph.style.display = 'none';
+    const v=$('#introVideo');const ph=$('#videoPh');
+    if(!v || v.dataset.wired)return;
+    v.dataset.wired='true';
+    const guide=state.screen==='setup';const no=guide?0:level().no;
+    const saved=guide?SERVER.guideVideo:SERVER.videoProgress;
+    let lastSaved=0;
+    v.addEventListener('loadedmetadata',()=>{ph.hidden=true;if(saved?.position && saved.position < v.duration-0.5)v.currentTime=saved.position;});
+    v.addEventListener('error',()=>{ph.hidden=false;});
+    const persist=async(complete=false)=>{
+      if(!Number.isFinite(v.duration) || v.duration<=0)return;
+      await CK.video(no,v.currentTime,v.duration,complete);
+      lastSaved=v.currentTime;
     };
-    const show = () => {
-      ph.style.display = '';
-    };
-
-    /* preload="metadata" 時，部分瀏覽器只會觸發 loadedmetadata、不一定有 loadeddata，
-       所以三個事件都聽；元素也可能在監聽器掛上前就載完，最後再補一次 readyState 檢查。 */
-    ['loadedmetadata', 'loadeddata', 'canplay'].forEach((e) => v.addEventListener(e, hide));
-    v.addEventListener('error', show);
-    /* 影片檔不存在時，error 發生在 <source> 上、不會冒泡到 <video>，要另外聽。 */
-    const source = v.querySelector('source');
-    if (source) source.addEventListener('error', show);
-    if (v.readyState >= 1) hide();
-
-    /* 看完自動標記，按鈕文案同步更新（不重繪，避免播放器被重建）。 */
-    v.addEventListener('ended', () => {
-      const L = lv();
-      if (L.videoWatched) return;
-      L.videoWatched = true;
-      save();
-      const btn = $('[data-action="videoDone"]');
-      if (btn) btn.textContent = '已看完，看六人發言';
+    v.addEventListener('timeupdate',()=>{if(v.currentTime-lastSaved>=5){lastSaved=v.currentTime;persist().catch(()=>{});}});
+    v.addEventListener('pause',()=>{persist().catch(()=>{});});
+    v.addEventListener('ended',async()=>{
+      const status=$('#videoStatus');if(status)status.textContent='正在保存觀看進度…';
+      try{
+        await persist(true);
+        if(guide)SERVER.guideVideo.completed=true;else {lv().videoWatched=true;save();}
+        const btn=$(guide?'[data-action="onboardingNext"]':'[data-action="videoDone"]');if(btn)btn.hidden=false;
+        if(status)status.textContent='已看完影片，可以繼續。';
+      }catch(e){if(status)status.innerHTML=`觀看進度尚未保存。<button class="btn btn--ghost" data-action="retryVideoSave">重試保存</button>`;}
     });
+    if(v.readyState>=1){ph.hidden=true;if(saved?.position && saved.position<v.duration-0.5)v.currentTime=saved.position;}
   }
 
   const observer = new MutationObserver(wireVideo);
@@ -1591,6 +1676,7 @@
     }
 
     /* 先套伺服器的權威狀態，再把純介面狀態（翻開了哪張卡、計時剩餘）疊回去 */
+    if(SERVER.flowVersion>=2){PHASES=['video','testimony','interrogation','combined','feedback'];TAB_PHASES=['video','testimony','interrogation','combined'];}
     applyServerState(s);
     const ui = loadUi();
     if (ui) {
@@ -1600,6 +1686,8 @@
         L.collapsed = ui[i].collapsed || {};
         L.expanded = ui[i].expanded || {};
         L.timeLeft = ui[i].timeLeft || {};
+        L.draftRevision=ui[i].draftRevision||{};
+        L.draft=ui[i].draft||'';L.selected=ui[i].selected||null;
         L.timedOut = ui[i].timedOut || {};
         if (!L.rankingSubmitted && ui[i].reason) L.reason = ui[i].reason;
         if (!L.rankingSubmitted && ui[i].pick) L.pick = ui[i].pick;
@@ -1607,19 +1695,22 @@
       });
     }
 
+    restoreDrafts(s);
     applyServerTimer(s);
 
-    /* 已經完成六關的人直接進真相畫面 */
     if (s.progress.finished) {
-      try {
-        await CK.loadTruth();
-      } catch (e) {
-        toast(`真相載入失敗：${e.message}`, 'error');
+      try { await syncPastDrafts(true); }
+      catch(e) {
+        main.innerHTML='<div class="note"><p>仍有草稿尚未同步，已保留在這台裝置。請恢復連線後重試保存，再進入後測。</p></div><div class="actions"><button class="btn btn--primary" id="retrySync">重試保存</button></div>';
+        $('#retrySync').onclick=()=>boot();return;
       }
+      location.href=SERVER.postCompleted?'results.html':'survey.html?kind=post';
+      return;
     }
+    syncPastDrafts().catch(()=>{});
 
     /* 第一次進來停在開場簡介，續跑的人直接回到遊戲 */
-    if (state.screen === 'play' && s.progress.levelNo === 1 && s.progress.phase === 'video' && !ui) {
+    if (state.screen === 'play' && s.progress.levelNo === 1 && s.progress.phase === 'video' && SERVER.onboardingStep < 3) {
       state.screen = 'setup';
     }
 
@@ -1629,5 +1720,12 @@
     wireVideo();
   }
 
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){save();flushDraft().catch(()=>{});}});
+  window.addEventListener('online',()=>{flushDraft().catch(()=>{});syncPastDrafts().catch(()=>{});});
+  window.addEventListener('pagehide',()=>{
+    if(!state || state.screen!=='play')return;save();
+    const p=livePhase(),revision=lv().draftRevision[p];
+    if(revision&&!lv().rankingSubmitted)fetch(`${API}/ck_draft.php`,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',keepalive:true,body:JSON.stringify({levelNo:level().no,phase:p,payload:draftPayload(p),revision})}).catch(()=>{});
+  });
   boot();
 })();

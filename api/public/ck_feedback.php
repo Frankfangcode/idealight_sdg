@@ -1,6 +1,6 @@
 <?php
 /**
- * 關卡回饋。這是本實驗唯一的操弄變項：
+ * 關卡回饋。回饋時機與角色資訊共享是本實驗的兩項組別差異：
  *   控制組（UI-05）：只給完成訊息，不揭露任何判定
  *   實驗組（UI-06）：逐則對照正解 + 哪裡有瑕疵 + 還可以追問 + AI 針對理由的評語
  *
@@ -11,6 +11,7 @@
 
 require_once __DIR__ . '/../src/api.php';
 require_once __DIR__ . '/../src/config.php';
+require_once __DIR__ . '/../src/review.php';
 
 $stuId = ck_require_stu_id();
 $run   = ck_run($stuId);
@@ -27,17 +28,9 @@ if (!$judgment) {
     ck_fail('尚未提交這一關的判斷', 409);
 }
 
-// ---- 控制組：完成訊息，不揭露判定 ----
-if (!ck_has_ai_feedback($run)) {
-    ck_log($stuId, $levelNo, 'feedback', 'view', ['cond' => 'control']);
-    ck_json([
-        'success'  => true,
-        'detailed' => false,   // 不回組別名稱，只回「有沒有詳細回饋」
-        'message'  => '你已完成這一關的推理。稍後會進入下一關。',
-    ]);
-}
+$canReveal = ck_has_ai_feedback($run) || ck_post_completed($stuId);
 
-// ---- 實驗組：逐則對照 + AI 評語 ----
+// 兩組都保存評語；只有符合揭露門檻時才回傳給學生。
 $feedback = ck_feedback_payload($levelNo);
 
 // 受試者自己的作答，用來組 AI 的 prompt 並在畫面上對照
@@ -67,7 +60,7 @@ if ($aiResponse === null) {
             $characters[$key] ?? $key,
             $key,
             $t['correct'] === 'reasonable' ? '合理' : '有瑕疵',
-            $mine ? ($mine['zone'] === 'reasonable' ? '合理' : '有瑕疵') : '未分類',
+            $mine && $mine['zone'] !== 'unclassified' ? ($mine['zone'] === 'reasonable' ? '合理' : '有瑕疵') : '未分類',
             $mine && !$mine['isCorrect'] ? '（與判定不符）' : ''
         );
     }
@@ -118,16 +111,15 @@ if ($aiResponse === null) {
 
     // AI 掛掉或金鑰沒設定時，逐則對照的部分仍要照常顯示——
     // 那是 UI-06 的主體，不該因為外部 API 失敗就讓實驗組看不到回饋。
+    $requestMessages = [['role'=>'system','content'=>$system],['role'=>'user','content'=>$user]];
     try {
-        $aiResponse = ck_llm_chat([
-            ['role' => 'system', 'content' => $system],
-            ['role' => 'user',   'content' => $user],
-        ]);
+        $aiResponse = ck_llm_chat($requestMessages);
     } catch (Throwable $e) {
         error_log('[ck_feedback] AI 回饋失敗：' . $e->getMessage());
         $aiResponse = null;
     }
 
+    $rawResponse = $aiResponse;
     // 規則 6 的保險：模型偶爾還是會吐 LaTeX 箭頭與 Markdown 粗體
     if ($aiResponse !== null) {
         $aiResponse = preg_replace('/\$\\\\(?:right|Right|long)?arrow\$/u', '→', $aiResponse);
@@ -136,10 +128,16 @@ if ($aiResponse === null) {
 
     $pdo->prepare(
         'INSERT INTO ck_feedback (stu_id, level_no, prompt_version, ai_response) VALUES (?, ?, ?, ?)'
-    )->execute([$stuId, $levelNo, 'v2', $aiResponse]);
+    )->execute([$stuId, $levelNo, 'v3', $aiResponse]);
+    $feedbackId=(int)$pdo->lastInsertId();
+    $pdo->prepare('INSERT INTO ck_feedback_audit(feedback_id,model,prompt_version,grading_criterion,request_messages,raw_response,status) VALUES(?,?,?,?,?,?,?)')
+        ->execute([$feedbackId,ck_llm_model(),'v3',$grading['ranking_criterion'],json_encode($requestMessages,JSON_UNESCAPED_UNICODE),$rawResponse,$rawResponse===null?'failed':'ok']);
 }
 
-ck_log($stuId, $levelNo, 'feedback', 'view', ['cond' => 'experiment', 'aiOk' => $aiResponse !== null]);
+if (!$canReveal) {
+    ck_json(['success'=>true,'detailed'=>false,'message'=>'本關作答已保存。完成後測問卷後，可查看總分與解析。']);
+}
+ck_log($stuId, $levelNo, 'feedback', 'view', ['cond' => $run['cond'], 'aiOk' => $aiResponse !== null]);
 
 ck_json([
     'success'     => true,
@@ -150,4 +148,5 @@ ck_json([
     'judgment'    => ['pickChar' => $judgment['pick_char'], 'isFlaw' => (bool)$judgment['is_flaw']],
     'ai'          => $aiResponse,
     'aiFailed'    => $aiResponse === null,
+    'totalScore' => ck_score($stuId),
 ]);

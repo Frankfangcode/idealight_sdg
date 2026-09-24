@@ -1,0 +1,166 @@
+/* September review: a quiet, readable investigation desk. Reuses existing components. */
+@font-face { font-family: 'Work Sans'; src: url('../../fonts/WorkSans-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Work Sans'; src: url('../../fonts/WorkSans-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+:root {
+  --color-canvas: #edf0f2;
+  --color-surface: #fafaf8;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #e5e8e9;
+  --color-border: #c8cecf;
+  --color-border-strong: #929c9f;
+  --color-text: #22282c;
+  --color-text-muted: #50595e;
+  --color-text-subtle: #5d6468;
+  --color-primary-ink: #26221b;
+  --paper: #fafaf8;
+  --paper-sunken: #e5e8e9;
+  --paper-muted: #50595e;
+  --paper-subtle: #5d6468;
+  --fs-xs: 1rem;
+  --fs-sm: 1.125rem;
+  --fs-base: 1.375rem;
+  --fs-md: 1.375rem;
+  --fs-lg: 1.5rem;
+  --fs-xl: 1.75rem;
+  --fs-2xl: 2rem;
+  --fs-3xl: 2.5rem;
+  --fs-4xl: 3rem;
+  --r-md: 8px;
+  --r-lg: 12px;
+}
+body { background: var(--color-canvas); color: var(--color-text); }
+.scene { display: none; }
+.scene__layer, .avatar[data-speaking='true'] { animation: none; }
+.chat__portrait { transition: none; }
+.chat__portrait[data-speaking='true'] { filter: saturate(.8) contrast(1.05); }
+.chat__portrait[data-speaking='true']::after { box-shadow: none; }
+.hero__title, .hero__lead, .hero__body, .phase-head__title { text-shadow: none; letter-spacing: normal; }
+.hero__title { font-size: clamp(2rem, 3vw, 3rem); line-height: 1.3; }
+.topbar, .tabbar { background: #fafaf8; backdrop-filter: none; border-color: var(--color-border); }
+.topbar { height: auto; min-height: 76px; flex-wrap: wrap; gap: 12px 20px; padding: 12px 24px; }
+.topbar__brand { flex-shrink: 1; min-width: 0; }
+.topbar__title { font-size: 1.125rem; letter-spacing: normal; max-width: 19ch; }
+.topbar__right { gap: 16px; }
+.score-progress { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.levels__dot { border-color: var(--color-border-strong); }
+.topbar .timer { background: #ffe4bc; color: #412b0c; border: 1px solid #bc832f; box-shadow: none; font-size: 1.75rem; animation: none; padding: 12px; }
+.topbar .timer[data-state='danger'] { background: #a7223a; border-color: #a7223a; color: #fff; animation: none; box-shadow: none; }
+.topbar .timer__bar { width: 52px; }
+.main--wide { max-width: 1400px; }
+.phase-head { display: block; padding-bottom: 24px; border-bottom-color: var(--color-border); }
+.phase-head__desc { margin-top: 16px; max-width: 72ch; font-size: var(--fs-base); line-height: 1.65; }
+.phase-head__title { font-size: var(--fs-2xl); }
+.phase-head__eyebrow, .hero__eyebrow, .tcard__tag, .chat__portrait-tag { display: none; }
+.actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+.onboarding { max-width: 1120px; margin: 28px auto 0; }
+.onboarding .hero__lead { color: var(--color-text-muted); font-size: var(--fs-base); }
+.roster--intro { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 24px; }
+.roster--intro .roster__item { display: flex; flex-direction: column; align-items: stretch; padding: 0 0 20px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; }
+.roster--intro .who { padding: 16px 20px 0; }
+.roster__photo { width: 100%; height: 220px; object-fit: cover; object-position: 50% 20%; }
+.instructions { counter-reset: instruction; display: grid; gap: 28px; max-width: 72ch; }
+.instructions li { counter-increment: instruction; display: grid; grid-template-columns: 32px 1fr; gap: 4px 16px; }
+.instructions li::before { content: counter(instruction); font-weight: 700; color: #935000; }
+.instructions p { grid-column: 2; color: var(--color-text-muted); }
+.loading-screen { padding: 64px 0; display: grid; justify-items: center; gap: 20px; }
+.loading-screen progress { width: min(480px,100%); accent-color: #a65c09; }
+.video-wrap { width: 100%; aspect-ratio: 16/9; min-height: 200px; background: #242b30; }
+.video-wrap video { width: 100%; height: 100%; object-fit: contain; }
+.video-ph { background: #e5e8e9; color: var(--color-text); gap: 16px; padding: 24px; }
+.video-status, .save-status { font-size: var(--fs-sm); color: var(--color-text-muted); }
+.deadline-hint { color: #941d32; font-weight: 700; }
+.interro { align-items: stretch; grid-template-columns: 280px minmax(0,1fr); }
+.chat { min-width: 0; }
+.chat__stage { grid-template-columns: minmax(0,1fr) 180px; }
+.chat__stage:not(:has(.chat__portrait)) { grid-template-columns: minmax(0,1fr); }
+.chat__stage .chat__log { min-height: 380px; max-height: 60vh; background: #e5e8e9; }
+.suspect { min-height: 82px; padding-right: 14px; }
+.suspect__done { position: static; margin-left: auto; }
+.suspect[aria-pressed='true'] { box-shadow: none; border-width: 2px; border-color: #94601b; }
+.who { min-width: 0; }
+.who__role { white-space: normal; }
+.tcard__text, .recall__text { font-size: var(--fs-base); line-height: 1.75; }
+.tcard[aria-expanded='false'] { background: #fafaf8; color: var(--color-text); border-color: var(--color-border); }
+.tcard[aria-expanded='false'] .tcard__head { margin-top: 16px; }
+.tcard__photo::after { background: none; }
+.tcard[aria-expanded='false'] .tcard__cta { color: #8b4b00; border-top-color: var(--color-border); }
+.tgrid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.tray__items { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.tray__head { flex-wrap: wrap; }
+.tray__head [data-action='scrollReason'] { display: none; }
+.combined .rank { grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); scroll-margin-top: 130px; padding-top: 32px; border-top: 1px solid var(--color-border); }
+.combined .textarea { min-height: 260px; }
+.combined .panel__head, .rankitem__row { flex-wrap: wrap; }
+.combined .panel__head .grow { display: none; }
+.combined .panel { min-width: 0; }
+.combined [data-action='confirmSubmit'] { align-self: flex-end; width: auto; }
+.pickbtn { min-width: 0; }
+.rankitem, .rankitem:hover { box-shadow: none; }
+.note, .fb__opening, .hero__q { border-left-width: 1px; }
+.note, .checklist li, .fb__opening { line-height: 1.75; }
+.btn { min-height: 48px; transition: opacity 160ms var(--ease-out); }
+.btn:active:not(:disabled) { opacity: .75; transform: none; }
+.btn--primary { color: var(--color-primary-ink); }
+.btn:focus-visible, .input:focus-visible, .textarea:focus-visible, summary:focus-visible { outline: 3px solid #94601b; outline-offset: 3px; }
+button, input, textarea { caret-color: #94601b; }
+textarea, .bubble, .fbitem, .result-feedback { overflow-wrap: anywhere; }
+.detective-card { max-width: 720px; margin: 24px auto; border: 2px solid #a56a22; border-radius: 12px; background: #faf6ed; padding: 48px; text-align: center; }
+.detective-card h1 { font-size: clamp(2rem,5vw,3rem); margin: 16px 0; }
+.detective-card .badge-mark { width: 96px; height: 96px; color: #935c16; margin: auto; }
+.result-score { font-size: 2.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.result-level { border-bottom: 1px solid var(--color-border); padding: 20px 0; }
+.result-level summary { cursor: pointer; font-weight: 700; min-height: 48px; }
+.result-feedback { padding: 24px 0; display: grid; gap: 24px; }
+.result-feedback .fbitem { background: var(--color-surface); padding: 20px; }
+.result-feedback h3 { font-size: var(--fs-lg); }
+.result-feedback p { white-space: pre-wrap; }
+.result-story { margin-top:48px; line-height:1.75; }
+.zone { min-height:140px; transition: border-color 160ms var(--ease-out); }
+.zone[data-zone='reasonable'] { background:#e6eee9; border-color:#568073; }
+.zone[data-zone='flaw'] { background:#f1e7e8; border-color:#a76572; }
+.result-footer { margin: 48px 0; text-align: center; }
+@media (hover: hover) and (pointer: fine) { .btn:hover:not(:disabled) { opacity: .88; transform: none; } }
+@media (max-width:1080px) { .interro { grid-template-columns: 1fr; } .suspects { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); } .chat__stage { grid-template-columns: 1fr; } .chat__portrait { display:none; } .topbar__spacer { display:none; } .topbar__right { margin-left:auto; } }
+@media (max-width:720px) {
+  .topbar { padding: 10px 16px; gap: 10px; }
+  .topbar__brand { flex-basis: 100%; }
+  .topbar__title { max-width: none; font-size: 1rem; }
+  .topbar__right { width:100%; justify-content:space-between; }
+  .topbar .timer { font-size:1.5rem; gap:8px; }
+  .topbar .timer::before { font-size:1rem; letter-spacing:normal; }
+  .topbar .timer__bar { display:none; }
+  .main { padding:24px 16px 36px; }
+  .hero__title { font-size:2rem; }
+  .phase-head__title { font-size:2rem; }
+  .phase-head__desc { font-size:1.25rem; margin-top:12px; }
+  .zone { min-height:120px; }
+  .roster--intro { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .roster__photo { height:160px; }
+  .roster--intro .who { padding:12px 12px 0; }
+  .suspects { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .suspect { flex-wrap:wrap; padding:12px; }
+  .suspect .avatar { width:36px; height:36px; }
+  .suspect .who { flex-basis:100%; }
+  .chat__head { flex-wrap:wrap; }
+  .chat__head .grow { display:none; }
+  .chat__stage .chat__log { min-height:260px; }
+  .chat__row .input { min-width:0; flex-basis:100%; }
+  .chat__row .btn { margin-left:auto; }
+  .combined .rank, .tray__items, .tgrid { grid-template-columns:1fr; }
+  .rankitem__row { gap:8px; }
+  .rankitem .pickbtn { flex-basis:100%; }
+  .recallbtn { margin-left:auto; }
+  .wall, .panel, .tray { min-width:0; }
+  .panel__head, .panel__body { padding:16px; }
+  .assign { flex-wrap:wrap; }
+  .tabbar { height:auto; min-height:64px; }
+  .tab { font-size:1rem; }
+  .tab__icon { display:none; }
+  .modal[data-size='full'] .modal__body { padding:20px 16px; }
+  .modal[data-size='full'] .fb__opening { padding:16px; }
+  .modal[data-size='full'] .fbitem { padding:16px; }
+  .modal[data-size='full'] .modal__foot { padding:16px; }
+  .fbitem__head { flex-wrap:wrap; }
+  .detective-card { padding:32px 20px; }
+}
+@media (prefers-reduced-motion:reduce) { .btn { transition:none; } .timer, .avatar, .scene__layer { animation:none; } }

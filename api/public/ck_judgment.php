@@ -15,7 +15,8 @@ require_once __DIR__ . '/../src/api.php';
 ck_require_post();
 
 $stuId = ck_require_stu_id();
-ck_run($stuId);
+$run = ck_run($stuId);
+if ((int)$run['flow_version'] >= 2) ck_fail('請使用合併作答頁提交',409);
 
 $in       = ck_input();
 $levelNo  = ck_valid_level((int)($in['levelNo'] ?? 0));
@@ -29,6 +30,9 @@ $timedOut = (bool)($in['timedOut'] ?? false);
 ck_require_current_level($stuId, $levelNo);
 
 $pdo = db();
+$phaseCheck=$pdo->prepare('SELECT phase FROM ck_progress WHERE stu_id=?');
+$phaseCheck->execute([$stuId]);
+if ($phaseCheck->fetchColumn() !== 'ranking') ck_fail('目前不能提交這個階段',409);
 
 // 證據牆要先提交才能進判斷階段
 $stmt = $pdo->prepare('SELECT COUNT(*) FROM ck_evidence WHERE stu_id = ? AND level_no = ?');

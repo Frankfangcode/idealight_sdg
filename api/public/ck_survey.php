@@ -24,12 +24,19 @@ if ($kind !== 'pre' && $kind !== 'post') {
 }
 
 $pdo = db();
+if ($kind === 'post') {
+    $q=$pdo->prepare('SELECT finished_at FROM ck_runs WHERE stu_id=?');$q->execute([$stuId]);
+    if (!$q->fetchColumn()) ck_fail('請先完成六關調查',409);
+}
 
 // ---- 回報完成 ----
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($in['action'] ?? '') === 'complete') {
+    $base=ck_env($kind === 'pre' ? 'SURVEYCAKE_PRE_URL' : 'SURVEYCAKE_POST_URL');
+    $q=$pdo->prepare('SELECT opened_at FROM ck_surveys WHERE stu_id=? AND kind=?');$q->execute([$stuId,$kind]);
+    if (!$base || !$q->fetchColumn()) ck_fail('請先開啟並完成問卷',409);
     $pdo->prepare(
         'INSERT INTO ck_surveys (stu_id, kind, completed_at) VALUES (?, ?, NOW())
-         ON DUPLICATE KEY UPDATE completed_at = NOW()'
+         ON DUPLICATE KEY UPDATE completed_at = COALESCE(completed_at,NOW())'
     )->execute([$stuId, $kind]);
 
     ck_log($stuId, null, 'survey', 'complete', ['kind' => $kind]);

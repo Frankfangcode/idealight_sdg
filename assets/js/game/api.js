@@ -71,6 +71,12 @@ const CK = (() => {
       stuId: s.stuId,
       hasAiFeedback: !!s.hasAiFeedback,
       levelCount: s.levelCount,
+      flowVersion: s.flowVersion || 1,
+      onboardingStep: s.onboardingStep,
+      guideVideo: s.guideVideo,
+      videoProgress: s.videoProgress,
+      postCompleted: s.postCompleted,
+      totalScore: s.totalScore,
       showRankingCriterion: !!s.config.SHOW_RANKING_CRITERION,
     };
 
@@ -115,6 +121,9 @@ const CK = (() => {
       return hydrate(await call('ck_state.php'));
     },
 
+    video: (levelNo, position, duration, completed=false) => call('ck_video.php',{levelNo,position,duration,completed}),
+    onboarding: (step) => call('ck_onboarding.php',{step}),
+    results: () => call('ck_results.php'),
     advance: (levelNo, phase) => call('ck_advance.php', { levelNo, phase }),
     nextLevel: (levelNo) => call('ck_advance.php', { levelNo, nextLevel: true }),
 
@@ -183,6 +192,8 @@ const CK = (() => {
 
     nudge: (levelNo, charKey) => call('ck_nudge.php', { levelNo, charKey }),
 
+    draft: (levelNo,phase,payload,revision) => call('ck_draft.php',{levelNo,phase,payload,revision}),
+    submitResponse: (levelNo,placements,pickChar,reason) => call('ck_response.php',{levelNo,placements,pickChar,reason}),
     submitEvidence: (levelNo, placements, timedOut = false) =>
       call('ck_evidence.php', { levelNo, placements, timedOut }),
 
