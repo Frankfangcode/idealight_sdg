@@ -1,5 +1,7 @@
 # 本輪狀態：依明確要求推送目前分支（2026-09-26）
 
+推送結果：首次自動批准審核因目的地所有權未確認而拒絕；使用者隨後明確確認允許上傳至Frankfangcode/idealight_sdg的fix/xiaomai-ui-followup分支。重新推送成功，`git ls-remote`確認遠端提交為`c4d92f572c16805e526be261081bb9982f53aac8`，main仍為`1bda91d3afa13563a9de8053dffcce72d581e86e`。該提交包含影片指南與核對／環境文件，並包含既有畫面修正祖先提交。此後僅補本段推送紀錄；沒有程式變動，沿用上一輪12項局部測試證據。`.claude/`仍為未追蹤的本機設定；未部署網站。
+
 使用者明確要求「把現在的內容推上git」，本輪採推送修正分支保存目前內容，不將未全測版本合併main或部署。推送目標為既有origin的fix/xiaomai-ui-followup；連線確認遠端main仍為1bda91d，遠端尚無同名修正分支。包含既有5a64f8c畫面修正，以及本機Windows驗證、故事核對、AI影片指南與交接文件。排除`.claude/settings.local.json`本機設定；`.env`與資料庫資料不在提交範圍。
 
 本輪重新執行`node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs`：12通過、0失敗、0跳過，exit 0；使用既有PLAYWRIGHT_MODULE與TEST_PHP_BINARY路徑，與[畫面驗證報告](docs/testing/2026-09-26-ui-followup.md)相同。三份相關JS語法、git diff --check及待提交文件的常見金鑰格式檢查通過；本次測試不連資料庫、不呼叫AI，不等於專案全測或完整資安掃描。
