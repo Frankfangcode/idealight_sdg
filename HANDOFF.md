@@ -20,6 +20,10 @@ PHP 8.2 全 27 個 API PHP 語法、45 個 JS 語法檢查通過；Windows 檔�
 
 分支全測後只有文件更新，來源碼、相依、設定與覆蓋範圍無變更，可沿用至合併前。main 合併後全測與推送結果在下方補記，未完成前不宣稱已推送。
 
+## main 收尾證據
+
+相容性提交 c756177 已快轉合併 main；main 的 MySQL 35/35、PHP 8.2／MariaDB 35/35 再測通過，程序退出碼均 0。原始紀錄 /tmp/idealight-revision/windows-main-mysql.log、windows-main-maria.log。Apache 快照 53 個 PHP／JS／存取設定檔與 main 逐位元組一致；此後只補文件。接續推送既有 origin/main 並比對遠端提交；沒有正式部署流程。工作區保留七支未追蹤的本機試播複製檔，原始 video.mp4 已納入 c756177，不包含 .env。
+
 ## 環境與剩餘限制
 
 18079 保持真實 AI 試玩，資料仍是隔離 MySQL idealight_test_review，後測模擬頁；沒有為了全測切回假 AI。自動測試另用 18081 / 33079 idealight_test_windows，18082 / 33080 MariaDB 同名隔離庫，以及 18080 模擬服務。Docker 僅為本機相同版本驗證，Windows 使用者不需裝 Docker。網站快照 /tmp/idealight-revision/xampp-site 不含正式 .env。
