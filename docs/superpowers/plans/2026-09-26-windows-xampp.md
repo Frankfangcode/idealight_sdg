@@ -28,3 +28,13 @@ MySQL 專用 collation 的匯入失敗；舊學生表外鍵定序不一致；Win
 - [x] 更新 Windows XAMPP 安裝及資料庫新建／升級／搬移說明，包含 .env、憑證、站台根路徑與影片。
 - [x] 獨立審查、產品理解交付、HANDOFF 記錄各項成功／失敗／未驗證。
 - [x] 來源全測通過後合併 main、main 重跑、push 並確認遠端；無既有部署流程不另建站。
+
+## Windows 真機補驗（2026-09-26，main@1bda91d）
+
+- [x] Windows 原生 Apache／MariaDB／Chrome 完整 35 項測試；PHP 8.0.30 最小設定與隔離 PHP 8.2.12 各 35/35。
+- [x] 原生 CLI、UTF-8 建表、重複遷移、私有路徑大小寫、實體影片及語法檢查。
+- [x] 修正 PowerShell 5.1 建表文件的 UTF-8 讀取；記錄 Apache 崩潰及 PHP 8.2 DLL 載入的失敗與對照證據。
+- [ ] 既有 XAMPP 完整 PHP 設定的 Apache 原生崩潰根因，仍待單獨定位；不能將隔離設定的成功外推至既有站台。
+- [ ] 正式 AI／TLS、問卷、七支正式素材、正式資料搬移與長時間負載驗收。
+
+本次只更新文件，未修改產品程式、既有 XAMPP 或正式資料；尚未提交／推送。詳見 [原生報告](../../testing/2026-09-26-windows-native.md)。

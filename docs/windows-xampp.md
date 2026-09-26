@@ -1,6 +1,6 @@
 # Windows XAMPP 安裝與搬機
 
-本版已用 PHP 8.2.12、Apache 2.4、MariaDB 10.4.32 的 Linux 容器執行完整測試；**尚未在 Windows 真機執行**。這些 PHP／MariaDB 版本對應 [XAMPP Windows 8.2.12 的官方套件](https://www.apachefriends.org/download.html?lan=english)。詳細證據見 [測試報告](testing/2026-09-26-xampp.md)。
+本版已在 **Windows 原生 PHP 8.0.30、Apache 2.4.58、MariaDB 10.4.32** 執行完整測試；另保留先前 Linux PHP 8.2.12／MariaDB 10.4.32 的驗證。詳細證據見 [Windows 原生報告](testing/2026-09-26-windows-native.md)及 [原相容性報告](testing/2026-09-26-xampp.md)。這是隔離資料庫與模擬 AI 的相容性驗證，正式問卷、AI 品質及研究資料搬移仍須另外驗收。
 
 GitHub 帶的是程式、建表檔和試播影片；資料庫裡的學生紀錄、`.env` 金鑰與電腦上的 Apache 設定不會隨 git pull 搬過來。
 
@@ -41,6 +41,8 @@ DocumentRoot "C:/xampp/htdocs/idealight_sdg"
 ```
 
 儲存後重啟 Apache，並啟動 MySQL。以 `http://localhost/` 開啟，**不是** `http://localhost/idealight_sdg/`。如果此 Apache 已服務其他網站，改用獨立 VirtualHost，避免改動既有網站的根目錄。`AllowOverride All` 讓專案的 `.htaccess` 存取規則生效。
+
+網址須配合實際 `Listen` 連接埠，例如 `Listen 8080` 使用 `http://localhost:8080/`。Windows 原生驗證曾在沿用本機完整 PHP 設定時看到 Apache 子程序崩潰；只補 `AcceptFilter http none` 未能排除，隔離最小 PHP 設定才通過無崩潰的測試。若日誌有 `exited with status 3221226356`，即使功能測試通過也不能視為站台穩定，詳見報告。本輪未修改既有 XAMPP 設定。
 
 ## 3. 資料庫：全新與升級擇一
 
@@ -90,6 +92,17 @@ DB_PASS=
 
 若 PHP 錯誤紀錄顯示 cURL 憑證驗證失敗，檢查 `C:\xampp\php\php.ini` 的 `curl.cainfo` 是否指到有效 CA 憑證檔，再重啟 Apache；不要關閉 TLS 憑證驗證來繞過錯誤。
 
+如果使用獨立 PHP 目錄，應修改該 Apache 的 `PHPIniDir` 指向的 `php.ini`。本輪試玩曾漏掉此設定，導致所有角色改用固定備援台詞；補上原 XAMPP 既有 CA 路徑後，兩個角色的真實 API 回覆及資料庫 `ai_ok=1` 均驗證成功：
+
+```ini
+[curl]
+curl.cainfo=C:/xampp/apache/bin/curl-ca-bundle.crt
+[openssl]
+openssl.cafile=C:/xampp/apache/bin/curl-ca-bundle.crt
+```
+
+先確認檔案實際存在且可讀。若原環境沒有可用 CA，可參考 [curl 官方憑證說明](https://curl.se/docs/sslcerts.html)。只驗證頁面 200、金鑰存在或模擬 AI 測試通過，都無法證明真實 HTTPS／AI 呼叫正常；啟動後應以獨立試用帳號實際發問，確認 `aiOk=true`，並檢查 PHP 錯誤日誌。
+
 ## 5. 準備目前的試播影片
 
 目前依使用者要求，根目錄 `video.mp4` 作為共同試播來源。執行：
@@ -106,4 +119,4 @@ C:\xampp\php\php.exe api\tools\prepare_demo_media.php
 
 另開 `/.env`、`/.ENV`、`/api/seed_cake.sql`、`/api/SEED_CAKE.SQL`、`/TESTS/helpers.mjs`、`/api/src/db.php`，都應是 403／404；若讀得到檔案，先修正 Apache 設定再提供學生使用。PHP 錯誤紀錄中不應有連線或 AI 錯誤。每個角色出現同一句固定測試台詞時，先查有沒有誤用模擬 AI 設定。
 
-自動測試另見 [tests/README.md](../tests/README.md)，只能對隔離測試資料庫執行。真機驗收尚未完成前，結論是「相同伺服器版本測試通過」，不是「Windows 已驗收」。
+自動測試另見 [tests/README.md](../tests/README.md)，只能對隔離測試資料庫執行。本輪結論是「Windows 原生隔離環境相容性測試通過」；正式站仍須以自己的資料庫、影片、AI 與問卷設定完成上述驗收。

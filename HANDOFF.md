@@ -1,3 +1,115 @@
+# 本輪狀態：依明確要求推送目前分支（2026-09-26）
+
+使用者明確要求「把現在的內容推上git」，本輪採推送修正分支保存目前內容，不將未全測版本合併main或部署。推送目標為既有origin的fix/xiaomai-ui-followup；連線確認遠端main仍為1bda91d，遠端尚無同名修正分支。包含既有5a64f8c畫面修正，以及本機Windows驗證、故事核對、AI影片指南與交接文件。排除`.claude/settings.local.json`本機設定；`.env`與資料庫資料不在提交範圍。
+
+本輪重新執行`node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs`：12通過、0失敗、0跳過，exit 0；使用既有PLAYWRIGHT_MODULE與TEST_PHP_BINARY路徑，與[畫面驗證報告](docs/testing/2026-09-26-ui-followup.md)相同。三份相關JS語法、git diff --check及待提交文件的常見金鑰格式檢查通過；本次測試不連資料庫、不呼叫AI，不等於專案全測或完整資安掃描。
+
+先前「不推送」是自動收尾時的保留狀態；本輪依使用者明確指示將修正分支保存到遠端。main仍受全測門檻限制：原測試會建立／刪除其他資料庫，不符合只用idealightsdg_cake的要求，不能將目標直接改成既有庫執行。沒有正式部署流程。提交與推送結果以本輪對話及遠端分支紀錄為準，下一步仍是確認CapCut可用模型、製作正式逐關素材及處理既有驗證限制。
+
+產品理解：Git推送只保存納入版本控制的程式／文件，不備份學生作答、密鑰或目前執行中的網站；本機Claude設定仍留本機。技能：product-owner-teaching、verification-before-completion。
+
+---
+
+# 本輪狀態：影片製作方法整理成 Markdown（2026-09-26）
+
+依使用者要求，新增[六關AI影片製作指南](docs/ai-video-production-guide.md)，整理Windows CapCut＋Seedance／Veo工具分工、分鏡與參考圖、提示詞示例、剪輯／字幕、六關揭露界線、skills、費用及第一個介面確認步驟，保留官方來源。只有文件變更，原有未提交內容保留；未生成素材、安裝工具、付費或修改資料庫。沿用先前查證，不聲稱已實測帳號可用模型。已檢查Markdown差異與本機相對連結；既有整套測試阻塞不變，未合併／推送／部署。套用product-owner-teaching，教學內容已收錄於指南。
+
+---
+
+# 本輪狀態：故事核對與六關影片方向（2026-09-26）
+
+使用者提供《消失的月蝕巧克力莓果千層蛋糕_六關角色對話_教師解析版_最終版.docx》，要求核對目前網頁及 AI 短片方向；已確認短片用於網頁、分成六關。本輪只新增[內容核對與製作建議](docs/testing/2026-09-26-story-video-audit.md)，未修改程式、Word、資料庫或影片。分支 fix/xiaomai-ui-followup@5a64f8c，原有未提交文件全部保留；未合併、推送或部署。
+
+以目前18079站台設定、唯讀交易讀取指定庫 idealightsdg_cake 的故事表，未讀學生資料、未呼叫真實AI。比對方法先校準已知相同／不同內容，確認六關36個唯一角色證詞；35則除空白逐字一致，另1則只是網站修正Word「遭遭竊」錯字；36判定皆一致。六段影片腳本文意一致；任務文字及人物性格有改寫。實際七個MP4雜湊仍全部相同，為既有試播片。
+
+重要限制：AI的額外口徑不全等於Word；第五關六禾的「自習室裡大家一起吃」增加當關證詞未承認的資訊，其他口徑有額外事實／自我糾錯。此為靜態素材發現，尚未證實模型每次都會說出。Word本身第二關飲料說法與第四關獨立證實的層次、第三關「原始檔」名稱與第六關標題兩種寫法，都已記錄建議，不擅自修改研究內容。
+
+已交付學生／教師／製片角度情境審查、主方案及低成本備援、影片接入資料流與驗收界線。建議第一／四關共用場景和動作素材，證據文字於剪輯時精確加入，兩組使用相同影片。未製作正式影片或聲稱成品QA通過。下一步先對齊揭露界線，再拆第一／四關逐鏡腳本。技能：docx、product-owner-teaching、brainstorming、verification-before-completion。
+
+---
+
+# 本輪狀態：小麥畫面漏項已修正（2026-09-26）
+
+使用者要求修正上輪漏項，並確認正式影片尚未完成、先修播放流程。唯一資料庫仍為 idealightsdg_cake，不新建或切換；沒有修改任何學生資料。來源 1bda91d，修正提交 5a64f8c，分支 fix/xiaomai-ui-followup。主工作區已切到此分支，原有未提交文件全部保留；main 未合併、未推送。獨立工作副本 C:/Users/User/AppData/Local/Temp/idealight-ui-followup-20260926 已 detached 到同一提交，保留測試與截圖。
+
+實作：[計畫](docs/superpowers/plans/2026-09-26-xiaomai-ui-followup.md)，[驗證／教學紀錄](docs/testing/2026-09-26-ui-followup.md)。只改 app.js／review.css：影片自動播放、隱藏原生控制列；瀏覽器阻擋時提供開始播放；重载可繼續播放；回饋標題右側顯示本關／累積分數並即時更新主畫面；配分說明、小標、本關任務主標與影片說明置頂。控制組不顯示分數或教學小標，舊回合和後端契約保持原樣。
+
+四項新行為逐項紅→綠，兩項回歸驗證；六項前端加六項既有安全案例，共12通過／0失敗／0跳過、exit 0。原始日誌 C:/Users/User/AppData/Local/Temp/idealight-ui-followup-tests.log。JS語法、git diff --check通過；獨立AI審查未發現明確新缺陷。沒有執行資料庫全套：它會建立／刪除其他測試庫，不符合指定庫限制，不能直接改目標為真實庫執行。因此依全測門檻不合併 main、不推送、不正式發布。
+
+兩輪桌機1280×800／手機375×812八項自評均合格，最終證據 C:/Users/User/AppData/Local/Temp/idealight-ui-followup-20260926/.screenshots/round2-desktop.png、round2-mobile.png。所有前端測試API均被攔截為合成內容，不連資料庫。Impeccable自動引擎不可用，未宣稱其自動掃描通過。
+
+原本 http://127.0.0.1:18079/ 已套用修正的兩份畫面檔，未重啟服務、未改 .env／session／素材。更新前確認站台舊檔與工作區原版一致，備份在 C:/Users/User/AppData/Local/Temp/idealight-ui-before-5a64f8c。更新後HTTP檔案雜湊與已驗證來源一致；Chrome在實際網址讀真實试播影片确认正在播放且無控制列，合成回饋確認右上分數／小標，无pageerror。這次瀏覽器檢查仍攔截全部API，未冒用真實學生或呼叫AI；腳本 C:/Users/User/AppData/Local/Temp/idealight-ui-live-smoke.mjs。
+
+剩餘：正式七支影片待補；真實AI串供／評語品質、問卷完成回傳及舊回合沿用舊流程仍是既有核對限制。本輪沒有擅改研究設計。後續若要合併推送，需先讓必要全測符合指定庫與資料保護要求，不能把12項局部通過當作全專案通過。
+
+已交付產品理解：畫面讀取既有計分，分類36分與推理評語分開；備援播放只在瀏覽器拒絕時出現，不增加外部服務或AI費用。技能清單與完整QA見上方驗證紀錄。
+
+---
+
+# 本輪狀態：小麥建議落差核對（2026-09-26）
+
+使用者要求對照 Word 與後續對話，檢查還有哪些沒改到。本輪只檢查，未改產品程式、既有資料或服務；保留開工時全部未提交修改。來源 main@1bda91d。
+
+逐項結果：[小麥建議核對](docs/testing/2026-09-26-xiaomai-gap-audit.md)。確定缺少正式逐關影片、自動播放且無控制列、回饋視窗右上分數、須知配分說明、回饋小標；「上方只顯示本關任務」僅部分符合。新流程／草稿／分組／圖卡／AI 評語留存已有實作，不能列為未做。舊回合仍採舊流程；真實 AI 品質與問卷實際完成驗證仍有限制。
+
+使用 Chrome 攔截全部 API、以合成內容查畫面，不寫入目前 18079 所連的既有學生資料庫。核對四份實際站台檔案與工作區雜湊一致；試玩七份影片全部等同根目錄 video.mp4。同意書與六角色圖可載入，未重現缺圖。最終桌機／手機證據在 C:/Users/User/AppData/Local/Temp/idealight-review-audit-20260926/。沒有重跑資料庫全測或呼叫真實 AI；Impeccable 自動引擎未能執行，改以現有文件及畫面核對。
+
+使用者本輪最新明確限制：資料庫一定使用 idealightsdg_cake，不另建或切換其他資料庫。後續保存功能驗收須以指定庫中的獨立測試帳號／新回合區分既有研究紀錄；現有會建立或刪除其他測試庫的全測腳本不符合此限制，不可直接執行，更不可把其目標名稱改成既有庫就執行。
+
+已交付新版／舊回合差異、畫面與資料保存分工及驗收限制。下一個具體動作是依核對表補漏，再依上述指定庫限制安排新回合驗收；不得為看新版重置既有研究資料。本輪僅新增核對報告並補交接，未提交／推送／部署。
+
+---
+
+# 已切回既有 idealightsdg_cake 資料庫（2026-09-26）
+
+使用者先詢問回退 commit，後明確選擇「保留目前程式，備份後升級資料庫」。因此程式仍為 `main@1bda91d`，沒有回退、提交或推送。`2906f2d` 是前一個 commit，但只差交接文件；較早的功能版本包含 `c756177`（XAMPP 相容）、`9b1e9bb`（新版流程）、`13e212f`（interrogation-chat）、`afe339b`（cake-experiment 舊選題訊問）。
+
+目前 `http://127.0.0.1:18079/` 已連到 **127.0.0.1:3306／MySQL 8.0.43／idealightsdg_cake**，沿用工作區 `.env` 既有 DB 設定與真實 AI。試玩 Apache 使用新的 `sessions-cake` 目錄，切換後需重新登入。這個網址現在會寫入既有資料庫，不可用來跑自動測試。
+
+升級前共有 18 張表、5 個學生及5個既有回合，缺少聊天、計時及新版五張表。完整備份保存在 `C:/Users/User/AppData/Local/Idealight/backups/idealightsdg_cake-20260926-170302/idealightsdg_cake.sql`，同目錄保留遷移檔、before／pre-apply／after 指紋。使用 MySQL 8.0 原生 mysqldump、single-transaction、routines／events／triggers、set-gtid-purged=OFF；密碼沒有寫入命令列或紀錄。
+
+先還原到獨立 `idealight_test_cake_upgrade_20260926170343`，確認18張表筆數及完整內容雜湊與來源一致；套用 `2026_09_interrogation_chat.sql`、`2026_09_review.sql`，再重複套用，25張表指紋完全一致。原有17張非設定表均未變動；設定表依遷移移除舊 MAX_INTERROGATIONS 並補入 INTERROGATION。原庫套用前再確認資料未變，套用後25張表與已驗證副本完全一致。六關及5個既有回合的唯讀程式檢查通過，既有回合仍為 flow_version=1。
+
+切換後首頁／登入200、未登入API401、`.env`403；以不存在的帳號確認登入查詢可達資料庫，未新增或冒用學生。沒有執行正式库全測，也沒有重設帳號、分組、作答或進度。還原驗證副本已刪除；舊33080隔離MariaDB已停止，資料檔及先前試玩資料保留。18079 真實AI站繼續運作。
+
+---
+
+# Windows 真實 AI 憑證修復（2026-09-26）
+
+使用者回報角色一直重複固定回覆。已確認原因：隔離 PHP 8.2 的最小 `php.ini` 缺少 CA 路徑，Apache 日誌顯示 `SSL certificate problem: unable to get local issuer certificate`；當時八筆角色回覆皆 `ai_ok=0`，不是誤用 mock。先前啟動只檢查設定與資料庫，未驗證真實回答，因此漏掉此問題。
+
+已在 `C:/Users/User/AppData/Local/Temp/idealight-windows-bb789a74/php82/php.ini` 補上 `curl.cainfo`、`openssl.cafile`，沿用原 XAMPP 的 `C:/xampp/apache/bin/curl-ca-bundle.crt`，保持 TLS 驗證啟用。重新啟動同一個 18079 試玩 Apache；資料庫、session 與使用者作答紀錄保持原樣。
+
+驗證：不帶金鑰的 HTTPS 探測 `curlError=0`／`tlsVerifyResult=0`（API 基底路徑 404 屬預期）；另以獨立 `ai_probe_*` 合成帳號，經實際登入及 `ck_chat.php` 對角色 1、2 提問，兩次 `aiOk=true`、內容不同，資料庫保存兩筆 `ai_ok=1`。檢查腳本為試玩目錄下 `check-tls.php`、`check-live-ai.mjs`。未刪除既有八筆失敗回覆，未重置使用者計時；沒有為此重跑模擬 AI 全測。
+
+---
+
+# Windows 試玩站已啟動（2026-09-26）
+
+使用者於測試完成後要求啟動，並明確授權「允許使用真實 AI」。目前入口 `http://127.0.0.1:18079/`，使用已驗證的隔離 PHP 8.2.12／Apache 2.4.58。AI 及問卷設定取自專案既有 `.env`，不是 `local-test`。首頁／登入頁 200、資料庫六關可讀，未登入 API 401、`.env`／SQL 403；本次啟動未額外呼叫付費模型驗證回答。
+
+試玩站快照及設定：`C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6`；使用全新 `idealight_preview_windows` 資料庫，不混用合成測試學生。MariaDB 使用先前隔離實例的 33080／datadir；不要在此庫跑自動測試或重新匯入 seed。網站 session 及七支實體試播影片也獨立。試玩快照的 `.env` 含真實設定，不提交或分享。原專案 `.env`、既有 8080 站台與 3306 MySQL 不變。
+
+目前保持試玩 Apache／MariaDB 運作，18080 模擬 AI 與 18082 測試網站已停止。這是本機背景程序，未安裝自動啟動服務；程式快照不會隨工作區修改自動更新。根目錄仍是共同試播影片，不是正式七關素材。
+
+---
+
+# Windows 真機補驗（2026-09-26）
+
+已在 Windows 目標電腦依相容計畫執行，來源 `main@1bda91d`。完整證據見 [Windows 原生報告](docs/testing/2026-09-26-windows-native.md)。以下舊紀錄的「Windows 尚未驗證」已由本節補充；正式環境的限制仍保留。
+
+- Windows Apache 2.4.58／MariaDB 10.4.32：PHP 8.0.30 最小設定與 PHP 8.2.12 隔離對照皆 35/35 通過，0 失敗／跳過，退出碼 0；包含原生 php.exe／mysql.exe 與 Chrome。
+- **原 XAMPP 完整 PHP 設定有 Apache 子程序崩潰**，不能只根據 35/35 宣稱原站台穩定。補 AcceptFilter 未解決；最小 PHP 設定下未再出現。尚未定位原設定的單一根因，未修改既有站台或系統 PHP。
+- PHP 8.2 初次測試發現混用 Apache 時 cURL DLL 載入失敗（31/35），明確載入隔離 PHP 套件 DLL 後 35/35 通過，無異常重啟。
+- PHP 8.0／8.2 各 27 檔、JS／MJS 46 檔語法通過；真實 Apache 私有路徑及大小寫保護通過；七份實體試播影片雜湊一致，Chrome 實際播放開場影片並解鎖下一步。
+- 修正 tests/README.md 的 PowerShell 5.1 UTF-8 讀取與 npm.cmd 指令；更新安裝指南。本輪產品 PHP／JS／SQL 無變更。
+- 原 3306 為另一套 MySQL，沒有操作其資料；本輪另建 33080 MariaDB、18082 Apache、18080 模擬 AI／問卷。沒有讀取或複製正式 `.env`、沒有呼叫真實 AI。
+- 原始日誌、合成資料與測試設定保留於 `C:/Users/User/AppData/Local/Temp/idealight-windows-bb789a74`；測試服務收尾後停止。本輪文件修改尚未提交或推送。
+
+下一步是處理既有 XAMPP 設定的崩潰原因，再進行正式站的 AI、問卷、素材與資料搬移驗收。Windows 相容性全測不等於正式施測環境已可使用。
+
+---
+
 # 本輪狀態（2026-09-26 Windows XAMPP 測試）
 
 使用者目標：從 GitHub 拉到 Windows XAMPP 後能執行，檢查資料庫與全部既有測試。來源 main@a2277f6；工作分支 fix/windows-xampp-compatibility。開工既有未提交項目只有使用者 video.mp4 及前輪試播連結；未覆蓋其他修改。
