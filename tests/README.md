@@ -1,44 +1,95 @@
 # 隔離驗證
 
-這些測試會新增合成學生、調整合成回合的時間，schema 測試會建立並刪除 `idealight_test_install_*` 暫存資料庫。**不可指定正式資料庫。** helpers 強制 `TEST_DB` 以 `idealight_test_` 開頭。網站仍使用正式程式，只把資料庫、AI 與問卷導向本機測試服務。
+測試會新增合成學生、調整合成回合的時間，並建立／刪除 `idealight_test_install_*`、`idealight_test_migrate_*`、`idealight_test_review_migrate_*` 暫存資料庫。**不可指定正式資料庫或真實 AI 試玩網站。** `TEST_DB` 必須以 `idealight_test_` 開頭，`TEST_URL` 必須明確指定本機地址；這只是防呆，仍須確認網站端的 DB_NAME 也指向同一個隔離資料庫。
 
-本輪工具：Node 24、PHP 8.5（pdo_mysql/curl/mbstring）、MySQL 9.6、Chrome、Playwright。正式資料表採 MySQL 8 的 `utf8mb4_0900_ai_ci`；MariaDB 不能直接套用本 SQL。
+已實測環境與逐項結果見 [2026-09-26 報告](../docs/testing/2026-09-26-xampp.md)。本輪全套為 35 個測試案例。新建資料庫支援 MariaDB 10.4.32 與 MySQL；不代表任何舊資料備份都能直接跨引擎匯入。
 
-本輪環境設在 `/tmp/idealight-revision`：
+## 相依與設定
 
-- MySQL datadir `mysql-test/`，socket `run/mysql.sock`，port `33079`，資料庫 `idealight_test_review`。
-- 僅此隔離 MySQL 的 `root@127.0.0.1` 測試密碼為 `test-not-used`（不是正式憑證）。
-- PHP session 放在 `run/`；HTTP port `18079`；AI/問卷替身 `18080`。
-- Playwright 裝在 `browser/`；`test-video.mp4` 是 ffmpeg 產生的一秒灰色測試片，瀏覽器只攔截影片請求，不放進產品 media。
+Node 22 以上（本輪 Node 24.5）、Chrome、PHP（pdo_mysql/curl/openssl/mbstring）、mysql 命令列工具。從專案根目錄執行 `npm ci --prefix tests`；Playwright 版本由 tests/package-lock.json 固定，使用既有 Chrome。影片 fixture 已包含在 tests/fixtures，不需安裝 ffmpeg。
 
-啟動 MySQL 的示例（先建立目錄，以 `mysqld --initialize-insecure --datadir=...` 初始化；只能指向新的空目錄）：
+| 變數 | 用途／預設 |
+|---|---|
+| TEST_DB | 必填；隔離資料庫名稱 |
+| TEST_URL | 必填；使用模擬 AI 的本機網站網址 |
+| TEST_DB_HOST / TEST_DB_PORT | 127.0.0.1 / 3306 |
+| TEST_DB_USER / TEST_DB_PASS | root / 空字串；僅用合成測試帳密 |
+| TEST_MYSQL_BINARY | mysql；Windows 可填 C:\\xampp\\mysql\\bin\\mysql.exe |
+| TEST_PHP_BINARY | php；Windows 可填 C:\\xampp\\php\\php.exe |
+| TEST_DB_SOCKET | 選填；Mac/Linux socket，Windows 用 TCP 即可 |
+| PLAYWRIGHT_MODULE | 選填外部安裝路徑；預設使用 tests/node_modules |
 
-```sh
-mysqld --no-defaults --datadir=/tmp/idealight-revision/mysql-test --socket=/tmp/idealight-revision/run/mysql.sock --port=33079 --bind-address=127.0.0.1 --mysqlx=OFF
+資料庫帳號須可建立、刪除上述測試前綴的資料庫。測試密碼透過 MYSQL_PWD 傳給子程序，不寫進命令列。不要把正式 .env 複製到測試站。
+
+## Windows 重跑方式（PowerShell）
+
+使用獨立的測試 checkout 與 XAMPP 本機測試資料庫服務；以下只用合成資料。先確認這台 MySQL 上沒有同名測試庫。這些是重現文件，尚未在原生 Windows 執行。
+
+先在專案根目錄開 PowerShell，建立測試用建表檔（將 SQL 內部的資料庫名稱一起替換，不能只在 mysql 命令末尾指定名稱）：
+
+```powershell
+$schemaText = (Get-Content api/schema.sql -Raw) + "`n" + (Get-Content api/schema_cake.sql -Raw) + "`n" + (Get-Content api/seed_cake.sql -Raw)
+$schemaText = $schemaText.Replace('idealightsdg', 'idealight_test_windows')
+$schemaPath = Join-Path $env:TEMP 'idealight-test-schema.sql'
+[IO.File]::WriteAllText($schemaPath, $schemaText, (New-Object Text.UTF8Encoding($false)))
+$mysqlSource = 'source ' + $schemaPath.Replace('\', '/')
+& C:\xampp\mysql\bin\mysql.exe --default-character-set=utf8mb4 -u root -e $mysqlSource
+npm ci --prefix tests
 ```
 
-在這個隔離 MySQL 建立 `idealight_test_review`，把 schema.sql、schema_cake.sql、seed_cake.sql 中的 `idealightsdg` **全部**替換為 `idealight_test_review` 後依序匯入。建立上述僅限本機的測試帳號。不得直接在正式 MySQL 執行測試。
+上面使用本機空密碼；若已設密碼，用 `-p` 讓 mysql 提示輸入。不要使用正式研究資料庫。網站、PHP 子程序和測試命令三處的 DB 設定必須相同。
 
-啟動兩個服務（在專案根目錄）：
+第一個視窗啟動模擬 AI／問卷並保持開啟：
 
-```sh
+```powershell
 node tests/fake-llm.mjs
-DB_HOST='127.0.0.1;port=33079' DB_NAME=idealight_test_review DB_USER=root DB_PASS=test-not-used LLM_API_KEY=test LLM_BASE_URL=http://127.0.0.1:18080 LLM_MODEL=local-test SURVEYCAKE_POST_URL=http://127.0.0.1:18080/survey php -d session.save_path=/tmp/idealight-revision/run -S 127.0.0.1:18079 -t . tests/router.php
 ```
 
-安裝測試瀏覽器驅動與製作測試影片：
+第二個視窗，設定僅供此程序使用的環境並啟動測試網站：
+
+```powershell
+$env:DB_HOST='127.0.0.1;port=3306'
+$env:DB_NAME='idealight_test_windows'
+$env:DB_USER='root'
+$env:DB_PASS=''
+$env:LLM_API_KEY='test'
+$env:LLM_BASE_URL='http://127.0.0.1:18080'
+$env:LLM_MODEL='local-test'
+$env:SURVEYCAKE_POST_URL='http://127.0.0.1:18080/survey'
+& C:\xampp\php\php.exe -S 127.0.0.1:18081 -t . tests/router.php
+```
+
+空密碼搭配的測試 checkout 不應包含正式 `.env`（部分 PowerShell 版本把空環境值移除；PHP 仍可使用預設空密碼）。如果有測試專用 .env，DB_PASS 也要一致。
+
+第三個視窗執行：
+
+```powershell
+$env:TEST_DB='idealight_test_windows'
+$env:TEST_URL='http://127.0.0.1:18081'
+$env:TEST_DB_PORT='3306'
+$env:TEST_DB_PASS=''
+$env:TEST_MYSQL_BINARY='C:\xampp\mysql\bin\mysql.exe'
+$env:TEST_PHP_BINARY='C:\xampp\php\php.exe'
+node tests/run.mjs
+```
+
+`run.mjs` 自己列舉測試檔，不依賴 Windows shell 展開萬用字元。单一紅綠測試改用 `node --test tests/對應檔名.test.mjs`。
+
+## 本輪 Mac／容器重現資訊
+
+MySQL：隔離實例 TCP 33079，DB idealight_test_windows，PHP 8.5 網站 18081。MariaDB：官方 mariadb:10.4.32 容器 TCP 33080，PHP 8.2.12/Apache 網站 18082，映像由 tests/docker/Dockerfile 建立。兩個資料庫同名但在不同服務；模擬 AI 共用本機 18080。
 
 ```sh
-npm install --prefix /tmp/idealight-revision/browser playwright @playwright/cli
-ffmpeg -f lavfi -i color=c=gray:s=640x360:d=1 -c:v libx264 -pix_fmt yuv420p /tmp/idealight-revision/test-video.mp4
+TEST_DB=idealight_test_windows TEST_URL=http://127.0.0.1:18081 TEST_DB_PORT=33079 TEST_DB_PASS=test-not-used node tests/run.mjs
+TEST_DB=idealight_test_windows TEST_URL=http://127.0.0.1:18082 TEST_DB_PORT=33080 TEST_DB_PASS=test-not-used TEST_MYSQL_BINARY=/tmp/idealight-revision/maria-client node tests/run.mjs
 ```
 
-執行：
+`test-not-used` 只是假資料庫的測試密碼。maria-client 是本機轉接腳本，呼叫容器自己的 mysql，並把 host port 33080 轉成容器內 3306；MySQL 9.6 客戶端缺少舊 MariaDB 所需的驗證 plugin，不能用它代替 XAMPP mysql.exe。此腳本不屬於產品依賴。
 
-```sh
-TEST_DB=idealight_test_review node --test --test-concurrency=1 tests/*.test.mjs
-```
+18079 是使用者真實 AI 試玩站，不能跑此套測試，也不應為了測試把它改回模擬 AI。容器的資料庫和網站皆綁定本機，網站快照不包含正式 .env。
 
-單一紅綠循環只指定當前 `*.test.mjs`。Chrome 須已安裝；Playwright module 可用 `PLAYWRIGHT_MODULE` 指定其他路徑。测试檔名和結果即是驗證清單。PHP 內建伺服器不讀 .htaccess，router.php 僅為本機模擬私有路徑；正式 Apache 的保護仍須部署後驗證。
+## 驗證範圍與限制
 
-`phase()` 和直接 SQL 更新 timer 只用於避免每個測試真的等待 150 / 240 秒；六關 workflow 的其餘切換、提交、AI 紀錄與後測皆經真實 HTTP/PDO/MySQL。並行分組另啟獨立 PHP 程序，確實測到資料庫交易鎖。測試不驗證真實模型串供品質、SurveyCake 回傳或正式影片內容。
+資料庫保存、HTTP/PHP 邊界、Chrome 瀏覽器與交易鎖使用真實系統。`phase()` 與 SQL 調整合成 timer 省略等待 150/240 秒；AI、問卷用替身，影片請求使用一秒 fixture。新測試確認串流、AI 成功紀錄與兩組提示詞共享界線，**不驗證真實模型的回答品質**。
+
+PHP 內建伺服器不讀 .htaccess，router.php 只模擬私有路徑規則；本輪另外使用真實 Apache 執行整套並驗證大小寫路徑保護。實際 Windows Apache、正式 SurveyCake、正式七支影片及舊 SDG 的外部 AI 流程仍待各自環境驗證。

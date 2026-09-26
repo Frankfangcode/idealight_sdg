@@ -7,10 +7,10 @@ Options -Indexes
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
-RedirectMatch 404 /\.(env|git)
+RedirectMatch 404 (?i)/\.(env|git)
 
 # Research plans and test fixtures are never public assets.
-RedirectMatch 404 ^/(tests|docs)(/|$)
-<FilesMatch "\.md$">
+RedirectMatch 404 (?i)^/(tests|docs)(/|$)
+<FilesMatch "(?i)\.md$">
     Require all denied
 </FilesMatch>

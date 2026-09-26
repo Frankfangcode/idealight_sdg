@@ -22,3 +22,10 @@ test('unauthenticated and cross-student requests cannot read or alter another an
  assert.equal(sql(`SELECT COUNT(*) FROM ck_evidence WHERE stu_id='${a.id}'`),'0');
  assert.equal((await api(a,'ck_survey.php',{kind:'post',action:'complete'})).status,409);
 });
+test('web server denies private source, SQL, settings, and test fixtures',async()=>{
+ const {base}=await import('./helpers.mjs');
+ for(const path of ['/.env','/.ENV','/.git/config','/.GIT/config','/api/SEED_CAKE.SQL','/TESTS/helpers.mjs','/README.MD','/api/schema.sql','/api/src/db.php','/api/tools/prepare_demo_media.php','/tests/helpers.mjs','/docs/superpowers/plans/2026-09-26-windows-xampp.md']){
+  const r=await fetch(base+path);assert.ok([403,404].includes(r.status),`${path}: ${r.status}`);
+  assert.equal((await r.text()).includes('synthetic-private-marker'),false);
+ }
+});

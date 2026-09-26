@@ -7,8 +7,8 @@
 
 ## 系統需求
 
-- Apache + PHP ≥ 8.0（需 `pdo_mysql`、`curl`、`openssl`、`mbstring` 擴充；XAMPP 8.0.x 可用）
-- MySQL 8.0+（資料表使用 utf8mb4_0900_ai_ci；MariaDB 需另行轉換，尚未驗證）
+- Apache + PHP ≥ 8.0（需 `pdo_mysql`、`curl`、`openssl`、`mbstring` 擴充）；本輪驗證 PHP 8.2.12／8.5.9
+- MySQL 8.0+ 或 MariaDB 10.4+；本輪實測 MySQL 9.6、MariaDB 10.4.32，全新建表使用共通的 utf8mb4_unicode_ci。舊備份搬移須另行驗證
 - 對外連線需可達 `generativelanguage.googleapis.com`（蛋糕實驗：訊問時的 AI 角色、AI 回饋）
   與 `api.openai.com`（SDG 實驗）
 - 匯入劇本工具需 Node.js（僅開發時用，正式部署不需要）
@@ -35,6 +35,8 @@
 
 ## 部署（XAMPP / Apache）
 
+Windows 使用者先看 [完整 XAMPP 安裝與搬機指南](docs/windows-xampp.md)。已完成相同 PHP／MariaDB 版本的容器測試，尚未在 Windows 真機執行。Git 不攜帶 `.env` 或學生資料庫。
+
 ### 1. 程式碼位置與 DocumentRoot
 
 **前端所有路徑都假設專案就是網站根目錄**（`/api/public/...`、`fetch('/components/...')`），
@@ -43,7 +45,7 @@
 ```apache
 DocumentRoot "C:/path/to/idealight_sdg"
 <Directory "C:/path/to/idealight_sdg">
-    AllowOverride All   # .htaccess 的防護要靠這行才會生效
+    AllowOverride All
     Require all granted
 </Directory>
 ```
@@ -56,12 +58,13 @@ mysql -h 127.0.0.1 -u root -p < api/schema_cake.sql
 mysql -h 127.0.0.1 -u root -p < api/seed_cake.sql
 ```
 
-SQL 可建立完整內容與作答資料表；正式影片須另外補入 media/，AI 與 SurveyCake 須設定環境變數。seed 可重複執行，不會產生重複資料。
+以上僅用於全新資料庫。SQL 可建立完整內容與作答資料表；試播可執行 `php api/tools/prepare_demo_media.php` 複製根目錄 video.mp4，正式影片須另外補入 media/，AI 與 SurveyCake 須設定環境變數。seed 可重複執行，不會產生重複資料。
 
 **已經部署過舊版的環境**不用重建，補跑異動檔即可（可重複執行，不會動到已收的作答）：
 
 ```
-mysql -h 127.0.0.1 -u root -p < api/migrations/2026_09_interrogation_chat.sql
+mysql -h 127.0.0.1 -u root -p idealightsdg < api/migrations/2026_09_interrogation_chat.sql
+mysql -h 127.0.0.1 -u root -p idealightsdg < api/migrations/2026_09_review.sql
 ```
 
 > **搬遷既有資料注意**：來源 MySQL 若開啟 GTID，`mysqldump` 必須加
@@ -71,7 +74,7 @@ mysql -h 127.0.0.1 -u root -p < api/migrations/2026_09_interrogation_chat.sql
 ### 3. 環境設定
 
 ```
-copy .env.example .env
+if not exist .env copy .env.example .env
 ```
 
 填入該機器的值：
@@ -100,7 +103,7 @@ copy .env.example .env
 
 ## 實驗設定備忘
 
-- **組別**：`students.group` 決定實驗組（`1`）／控制組（`2`），受試者註冊後需由研究者填入；
+- **組別**：`students.group` 決定實驗組（`1`）／控制組（`2`），首次登入尚未分組者由系統交替分派（控制、實驗），既有組別保留；
   開始遊戲時凍結到 `ck_runs.cond`，中途改組別不影響已開始的受試者。
   前端只拿得到 `hasAiFeedback` 布林值，受試者無從得知自己的組別。
 - **主要操弄（訊問）**：六位角色都可以問、自由打字、不限次數，只限時間。
@@ -115,8 +118,8 @@ copy .env.example .env
   `ck_questions`（教師版可用追問）不再出前端，改當角色的口徑依據。
 - **階段只能往前**：後端（`ck_advance.php`）強制，防止看完回饋回頭改答案。
   判斷階段內建「回顧」可重讀所有證詞，不需要回到前面的階段。
-- **計時**：訊問 150s（`ck_config.INTERROGATION.seconds`，2:00 或 2:30 尚待定案，改這個值即可）／
-  證據牆 60s／判斷 180s（`ck_config.PHASE_SECONDS`）。
+- **計時**：訊問 150s（`ck_config.INTERROGATION.seconds`）；新版分類與推理共用 240s。
+  舊回合保留證據牆 60s／判斷 180s（`ck_config.PHASE_SECONDS`）。
   證據牆與判斷提前完成可直接送出；逾時會強制送出當下狀態並標記 `timed_out`，
   「沒做完」本身是要保留的研究資料。
   **訊問沒有「問完了」的出口**：時間沒到就停在訊問頁，時間到才自動切到證據牆
@@ -138,8 +141,8 @@ copy .env.example .env
 
 ## 分支
 
-- `main`：SDG 認知偏誤實驗（原系統）
-- `cake-experiment`：加入蛋糕批判思考遊戲的完整版本
+- `main`：目前整合版，包含 SDG 原系統、蛋糕遊戲及小麥審閱版。
+- 歷史功能分支保留開發紀錄，Windows 請拉取 `main`。
 
 
 ## 2026-09 小麥審閱版

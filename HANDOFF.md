@@ -1,3 +1,35 @@
+# 本輪狀態（2026-09-26 Windows XAMPP 測試）
+
+使用者目標：從 GitHub 拉到 Windows XAMPP 後能執行，檢查資料庫與全部既有測試。來源 main@a2277f6；工作分支 fix/windows-xampp-compatibility。開工既有未提交項目只有使用者 video.mp4 及前輪試播連結；未覆蓋其他修改。
+
+計畫：[Windows 相容性計畫](docs/superpowers/plans/2026-09-26-windows-xampp.md)。交付：[Windows 安裝／搬機指南](docs/windows-xampp.md)、[逐項測試與 QA 報告](docs/testing/2026-09-26-xampp.md)、[測試重現](tests/README.md)。本輪保持產品流程不變，不搬移／清除真實學生資料。
+
+## 修改、局部決定與理由
+
+全新 schema 使用共通 unicode 定序；舊訊問表遷移沿用 students 欄位型別與定序，移除固定 USE，文件命令明確指定資料庫。ck_env 支援明確空環境值，符合 XAMPP 空密碼。Apache 保護改成不分大小寫，防止 Windows 類檔案系統讀出 SQL 正解、測試與文件。
+
+測試工具可配置 Windows php.exe/mysql.exe 與 TCP，資料庫輸出正規化 CRLF；Apache session cookie 取最後一次更新。固定 Playwright 1.63.0 與一秒 fixture，新增跨角色共享、遷移、空密碼與素材案例。新增 prepare_demo_media.php 將根目錄 video.mp4 複製成七支實體試播影片，保留既有檔案。使用者原片隨本輪提交，七份本機複製檔不提交；已將前輪由我們建立的七個 ../video.mp4 連結換成相同內容實體檔，沒有替換其他正式素材。
+
+推薦沿用 XAMPP，避免要求 Windows 改裝 MySQL；备援是另裝與來源一致的 MySQL，但增加安裝負擔。研究資料庫、.env 與站台設定不會隨 Git 搬移。對使用者已交付產品理解：流程不變、程式／資料／設定分工、隔離測試資料流、相容性理由、替代方案、模擬 AI 不产生費用，以及真機／外部品質限制。
+
+## 驗證證據
+
+原版 MySQL 基線 25/25 通過。新增案例後，分支 MySQL 35/35、PHP 8.2.12 + Apache 2.4.57 + MariaDB 10.4.32 35/35，無失敗、跳過。完整命令在 tests/README.md；原始輸出 /tmp/idealight-revision/windows-branch-mysql.log、windows-branch-maria.log。兩個程序退出碼皆 0，逐列與 pass/fail 計數吻合。這是 Mac 主機／Linux 容器，不是 Windows 真機；補充 PHP 子程序仍在 Mac PHP 8.5.9 執行。
+
+PHP 8.2 全 27 個 API PHP 語法、45 個 JS 語法檢查通過；Windows 檔名／大小寫檢查無衝突、候選檔無符號連結。各修復先重現失敗再重測成功；完整 review 遷移重跑保留分派及草稿。真實 Apache 驗證大小寫存取保護；安全與學生／研究者 QA 逐項見報告。獨立 AI 唯讀審查已複查修正，未發現新的明確阻塞問題。沒有 UI 修改，不重新計入前轮截圖；本轮实际 Chrome 流程通过。
+
+分支全測後只有文件更新，來源碼、相依、設定與覆蓋範圍無變更，可沿用至合併前。main 合併後全測與推送結果在下方補記，未完成前不宣稱已推送。
+
+## 環境與剩餘限制
+
+18079 保持真實 AI 試玩，資料仍是隔離 MySQL idealight_test_review，後測模擬頁；沒有為了全測切回假 AI。自動測試另用 18081 / 33079 idealight_test_windows，18082 / 33080 MariaDB 同名隔離庫，以及 18080 模擬服務。Docker 僅為本機相同版本驗證，Windows 使用者不需裝 Docker。網站快照 /tmp/idealight-revision/xampp-site 不含正式 .env。
+
+Windows 真機、正式問卷／素材、真實 AI 完整品質與正式研究資料搬移尚未驗證。既有 MySQL 0900 備份不能當作能直接匯入 MariaDB。未配置 CI、自動部署或正式站網址，不另建站。下一個需使用者參與的動作是依 Windows 指南在目標電腦完成環境驗收；只拉 Git 不足以帶入密鑰與資料。
+
+本輪技能：product-owner-teaching、systematic-debugging、writing-plans、executing-plans、test-driven-development、requesting-code-review、verification-before-completion、finishing-a-development-branch。
+
+---
+
 # 本輪狀態（2026-09-24）
 
 ## 目標與核可範圍

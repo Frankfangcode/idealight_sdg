@@ -1,8 +1,11 @@
 import {execFileSync} from 'node:child_process';
-export const base = process.env.TEST_URL || 'http://127.0.0.1:18079';
-export function sql(query) {
-  if (!/^idealight_test_[a-z0-9_]+$/.test(process.env.TEST_DB || '')) throw new Error('Use an isolated TEST_DB');
-  return execFileSync('mysql', ['--no-defaults','--socket=/tmp/idealight-revision/run/mysql.sock','-u','root','-N','-B',process.env.TEST_DB,'-e',query], {encoding:'utf8'}).trim();
+import {testConfig,normalizeMysqlOutput} from './test-config.mjs';
+export const config=testConfig();
+export const base=config.base;
+export function sql(query) { return mysqlScript(query,config.database).trim(); }
+export function mysqlScript(query,database) {
+  const args=[...config.mysqlArgs,...(database?[database]:[])];
+  return normalizeMysqlOutput(execFileSync(config.mysqlBinary,args,{input:query,encoding:'utf8',env:config.clientEnv}));
 }
 let serial=0;
 export async function student(group=null) {
@@ -11,7 +14,7 @@ export async function student(group=null) {
   const r=await fetch(base+'/api/public/login.php',{method:'POST',body:new URLSearchParams({ID:id,name:'Test'})});
   const body=await r.text();
   if (!body.startsWith('{')) throw new Error(body);
-  const cookie=r.headers.get('set-cookie')?.split(';')[0];
+  const cookie=r.headers.getSetCookie().filter(value=>value.startsWith('PHPSESSID=')).at(-1)?.split(';')[0];
   const login=JSON.parse(body);if(!login.success||!cookie)throw new Error('Test login failed: '+body);
   return {id,cookie,login};
 }

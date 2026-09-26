@@ -18,7 +18,7 @@ function ck_env(string $key, ?string $default = null): ?string
     static $dotenv = null;
 
     $fromEnv = getenv($key);
-    if ($fromEnv !== false && $fromEnv !== '') {
+    if ($fromEnv !== false) {
         return $fromEnv;
     }
 

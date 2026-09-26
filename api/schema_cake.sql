@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS ck_config (
 -- 避免中途改組別導致資料無法解讀。
 CREATE TABLE IF NOT EXISTS ck_runs (
   id          INT         NOT NULL AUTO_INCREMENT,
-  stu_id      VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  stu_id      VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   cond        ENUM('experiment','control') NOT NULL,
   started_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
   finished_at TIMESTAMP   NULL DEFAULT NULL,
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS ck_runs (
 -- 目前進度。phase 對應前端 PHASES 陣列。
 -- 重整或關掉瀏覽器後由此續跑（DEMO 的 sessionStorage 版本做不到）。
 CREATE TABLE IF NOT EXISTS ck_progress (
-  stu_id     VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  stu_id     VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   level_no   INT         NOT NULL DEFAULT 1,
   phase      VARCHAR(20) NOT NULL DEFAULT 'video',
   updated_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS ck_progress (
 -- prompt_version 讓日後能追溯每句回答是在哪一版提示詞下產生的。
 CREATE TABLE IF NOT EXISTS ck_chat_messages (
   id             BIGINT       NOT NULL AUTO_INCREMENT,
-  stu_id         VARCHAR(50)  COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  stu_id         VARCHAR(50)  COLLATE utf8mb4_unicode_ci NOT NULL,
   level_no       INT          NOT NULL,
   char_key       VARCHAR(4)   NOT NULL,
   role           ENUM('player','character','nudge') NOT NULL,
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS ck_chat_messages (
 -- 逾時的提問由 ck_chat.php 依這裡的時間拒收；重整頁面也從這裡還原剩餘秒數，
 -- 不會因為清掉 sessionStorage 就重新拿到一整段時間。
 CREATE TABLE IF NOT EXISTS ck_phase_timers (
-  stu_id     VARCHAR(50)  COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  stu_id     VARCHAR(50)  COLLATE utf8mb4_unicode_ci NOT NULL,
   level_no   INT          NOT NULL,
   phase      VARCHAR(20)  NOT NULL,
   started_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS ck_phase_timers (
 -- 證據牆分類。一位受試者在一關對每個角色只有一個分類結果。
 -- is_correct 由後端比對 ck_testimonies.correct 後寫入，前端不參與判定。
 CREATE TABLE IF NOT EXISTS ck_evidence (
-  stu_id       VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  stu_id       VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   level_no     INT         NOT NULL,
   char_key     VARCHAR(4)  NOT NULL,
   -- unclassified：計時到期時尚未分類的角色。逾時不該讓整筆作答失敗，
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS ck_evidence (
 -- 本案六人皆有涉入，故 is_flaw 只記錄所選對象在該關是否被判定為有瑕疵，
 -- 不等於「答對」——真正的評分要看 reason 的推理品質（由 AI 依 ranking_criterion 評）。
 CREATE TABLE IF NOT EXISTS ck_judgments (
-  stu_id       VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  stu_id       VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   level_no     INT         NOT NULL,
   -- 逾時強制提交時可能還沒選人／理由未達字數，故兩欄可為 NULL
   pick_char    VARCHAR(4)  NULL,
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS ck_judgments (
 -- AI 回饋（僅實驗組）。保留 prompt 版本以便日後追溯回饋內容的產生條件。
 CREATE TABLE IF NOT EXISTS ck_feedback (
   id             INT         NOT NULL AUTO_INCREMENT,
-  stu_id         VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  stu_id         VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   level_no       INT         NOT NULL,
   prompt_version VARCHAR(20) NOT NULL DEFAULT 'v1',
   ai_response    MEDIUMTEXT,
@@ -199,7 +199,7 @@ CREATE TABLE IF NOT EXISTS ck_feedback (
 -- 前測／後測問卷。問卷本身在 SurveyCake，這裡只記錄開啟與完成的時間點，
 -- 供事後與 SurveyCake 匯出的資料以 stu_id 對接。
 CREATE TABLE IF NOT EXISTS ck_surveys (
-  stu_id       VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  stu_id       VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   kind         ENUM('pre','post') NOT NULL,
   opened_at    TIMESTAMP   NULL DEFAULT NULL,
   completed_at TIMESTAMP   NULL DEFAULT NULL,
@@ -211,7 +211,7 @@ CREATE TABLE IF NOT EXISTS ck_surveys (
 -- payload 用 JSON 收各事件的自由欄位，避免每加一種事件就改表。
 CREATE TABLE IF NOT EXISTS ck_events (
   id         BIGINT      NOT NULL AUTO_INCREMENT,
-  stu_id     VARCHAR(50) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  stu_id     VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   level_no   INT,
   phase      VARCHAR(20),
   event      VARCHAR(40) NOT NULL,

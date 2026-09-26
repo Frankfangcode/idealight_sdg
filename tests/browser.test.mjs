@@ -1,11 +1,11 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {student,base,sql,phase} from './helpers.mjs';
-const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || '/tmp/idealight-revision/browser/node_modules/playwright/index.mjs');
+import {test} from 'node:test';import assert from 'node:assert/strict';import {fileURLToPath,pathToFileURL} from 'node:url';import {student,base,sql,phase} from './helpers.mjs';
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
 async function pageFor(s){
  const browser=await chromium.launch({headless:true,channel:'chrome'});
  const context=await browser.newContext({viewport:{width:1280,height:800},deviceScaleFactor:1});
  await context.addCookies([{name:'PHPSESSID',value:s.cookie.split('=')[1],url:base}]);
  const page=await context.newPage();browser.pageErrors=[];page.on('pageerror',e=>browser.pageErrors.push(e.message));
- await page.route('**/media/*.mp4',route=>route.fulfill({path:'/tmp/idealight-revision/test-video.mp4',contentType:'video/mp4'}));
+ await page.route('**/media/*.mp4',route=>route.fulfill({path:fileURLToPath(new URL('./fixtures/one-second.mp4',import.meta.url)),contentType:'video/mp4'}));
  return {browser,page};
 }
 test('onboarding shows one task per page and unlocks next only after video ends',async()=>{
