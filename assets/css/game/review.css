@@ -68,6 +68,17 @@ body { background: var(--color-canvas); color: var(--color-text); }
 .video-wrap video { width: 100%; height: 100%; object-fit: contain; }
 .video-ph { background: #e5e8e9; color: var(--color-text); gap: 16px; padding: 24px; }
 .video-status, .save-status { font-size: var(--fs-sm); color: var(--color-text-muted); }
+.video-start { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
+.video-start[hidden] { display: none; }
+.video-start p { margin-right: auto; font-size: var(--fs-sm); }
+.feedback-head { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: start; gap: 16px; }
+.feedback-heading { min-width: 0; }
+.feedback-subtitle { margin-top: 8px; font-size: var(--fs-sm); line-height: 1.5; color: var(--color-text-muted); }
+.feedback-score { display: flex; gap: 24px; padding: 12px 20px; background: #ffe4bc; color: #412b0c; border: 1px solid #bc832f; border-radius: var(--r-md); font-variant-numeric: tabular-nums; }
+.feedback-score > div { display: grid; gap: 4px; }
+.feedback-score span { font-size: 1rem; }
+.feedback-score strong { font-size: 1.75rem; line-height: 1.2; }
+.feedback-score strong span { margin-left: 4px; font-weight: 400; }
 .deadline-hint { color: #941d32; font-weight: 700; }
 .interro { align-items: stretch; grid-template-columns: 280px minmax(0,1fr); }
 .chat { min-width: 0; }
@@ -122,6 +133,11 @@ textarea, .bubble, .fbitem, .result-feedback { overflow-wrap: anywhere; }
 @media (hover: hover) and (pointer: fine) { .btn:hover:not(:disabled) { opacity: .88; transform: none; } }
 @media (max-width:1080px) { .interro { grid-template-columns: 1fr; } .suspects { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); } .chat__stage { grid-template-columns: 1fr; } .chat__portrait { display:none; } .topbar__spacer { display:none; } .topbar__right { margin-left:auto; } }
 @media (max-width:720px) {
+  .feedback-head { grid-template-columns: minmax(0,1fr) auto; gap: 12px; }
+  .feedback-head .modal__close { grid-column: 2; grid-row: 1; }
+  .feedback-score { grid-column: 1 / -1; justify-self: end; gap: 24px; padding: 8px 16px; }
+  .feedback-score > div { display: flex; align-items: baseline; gap: 8px; }
+  .feedback-score strong { font-size: 1.5rem; }
   .topbar { padding: 10px 16px; gap: 10px; }
   .topbar__brand { flex-basis: 100%; }
   .topbar__title { max-width: none; font-size: 1rem; }

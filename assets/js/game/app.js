@@ -611,8 +611,8 @@
     if (step === 0) return `<section class="onboarding stack stack--lg">
       <h1 class="hero__title">觀看調查說明</h1>
       <p class="muted">${esc(SCENARIO.title)}</p>
-      ${videoPlayer('../' + SERVER.guideVideo.src)}
       <p class="video-status" id="videoStatus" role="status">看完影片後，就能認識這次案件的六位角色。</p>
+      ${videoPlayer('../' + SERVER.guideVideo.src)}
       <div class="actions"><button class="btn btn--primary btn--lg" data-action="onboardingNext" ${SERVER.guideVideo.completed ? '' : 'hidden'}>誰該負責？</button></div>
     </section>`;
     if (step === 1) return `<section class="onboarding stack stack--lg">
@@ -624,6 +624,7 @@
     return `<section class="onboarding stack stack--lg">
       <h1 class="hero__title">調查須知</h1>
       <p>六個關卡，一起釐清蛋糕消失的經過。</p>
+      <p>每關有 6 則證詞，分類正確一則得 1 分，每關最高 6 分，六關共 36 分。推理理由會另外提供評語，不計入分類得分。</p>
       <ol class="instructions">
         <li><strong>觀看劇情、閱讀六人的發言</strong><p>先了解這一關的線索，再開始訊問。</p></li>
         <li><strong>訊問六位角色</strong><p>共 ${mmss(INTERROGATION.seconds)}，可自由打字提問。等待回答也會計時，未送出的文字會另外保存。</p></li>
@@ -635,8 +636,21 @@
   }
 
   function videoPlayer(src) {
-    return `<div class="video-wrap"><video id="introVideo" controls preload="metadata" playsinline src="${esc(src)}"></video>
-      <div class="video-ph" id="videoPh" hidden><strong>影片暫時無法播放</strong><p>請先重試；若仍無法播放，請告知施測人員。</p><button class="btn btn--ghost" data-action="retryVideo">重新載入影片</button></div></div>`;
+    return `<div class="video-wrap"><video id="introVideo" preload="auto" playsinline aria-label="調查說明影片" src="${esc(src)}"></video>
+      <div class="video-ph" id="videoPh" hidden><strong>影片暫時無法播放</strong><p>請先重試；若仍無法播放，請告知施測人員。</p><button class="btn btn--ghost" data-action="retryVideo">重新載入影片</button></div></div>
+      <div class="video-start" id="videoStart" hidden><p>瀏覽器需要你先點一下，才能播放有聲影片。</p><button class="btn btn--primary" data-action="startVideo">開始播放</button></div>`;
+  }
+
+  async function startVideo() {
+    const v=$('#introVideo'),prompt=$('#videoStart');
+    if(!v)return;
+    if(prompt)prompt.hidden=true;
+    try { await v.play(); }
+    catch(e) {
+      if(!v.isConnected)return;
+      if(e.name==='NotAllowedError') { if(prompt)prompt.hidden=false; }
+      else if(e.name!=='AbortError') { const ph=$('#videoPh');if(ph)ph.hidden=false; }
+    }
   }
 
   async function startInvestigation() {
@@ -681,9 +695,9 @@
     return `
       <div class="phase-head">
         <div>
-          <h1 class="phase-head__title">第 ${L.no} 關｜${esc(L.name)}</h1>
+          <h1 class="phase-head__title">本關任務</h1>
         </div>
-        <p class="phase-head__desc"><strong class="muted">本關任務　</strong>${esc(L.task)}</p>
+        <p class="phase-head__desc">${esc(L.task)}</p>
       </div>
       ${draft}
       ${body}
@@ -694,8 +708,8 @@
 
   function viewVideo() {
     return `<div class="stack stack--lg">
-      ${videoPlayer(level().video.src)}
       <p class="video-status" id="videoStatus" role="status">請看完本關影片，再閱讀六人的發言。</p>
+      ${videoPlayer(level().video.src)}
       <div class="actions"><button class="btn btn--primary btn--lg" data-action="videoDone" ${lv().videoWatched?'':'hidden'}>看六人的發言</button></div>
     </div>`;
   }
@@ -1162,7 +1176,7 @@
     const isLast = state.levelIndex === SCENARIO.levels.length - 1;
     const nextLabel = isLast ? '完成調查，前往後測問卷' : '確認，進入下一關';
 
-    let body;
+    let body,scoreHeader='';
     /* 實驗組的逐則對照需要 testimonies 與 evidence。回應若殘缺就退回完成訊息，
        而不是讓整個回饋視窗炸掉 —— 受試者的作答此時已經保存，
        畫面壞掉會讓他以為資料掉了。 */
@@ -1184,6 +1198,11 @@
       /* UI-06 實驗組回饋。正解與判定理由到這一刻才第一次進到前端。 */
       const score = scoreOf();
       SERVER.totalScore=feedbackData.totalScore;
+      renderTopbar();
+      scoreHeader=`<div class="feedback-score" aria-label="證詞分類得分">
+        <div><span>本關得分</span><strong>${score}<span>/6</span></strong></div>
+        <div><span>累積得分</span><strong>${SERVER.totalScore}<span>/36</span></strong></div>
+      </div>`;
       const items = KEYS.map((k) => {
         const t = feedbackData.testimonies[k];
         const got = (feedbackData.evidence[k] && feedbackData.evidence[k].zone) || 'unclassified';
@@ -1221,16 +1240,7 @@
       body = `
         ${aiBlock}
 
-        <div class="fb__score">
-          <span class="fb__scorenum">${score}<span class="muted" style="font-size:var(--fs-lg)">/6</span></span>
-          <span class="small muted">分類正確數（本關 ${level().reasonableCount} 則合理、${
-        6 - level().reasonableCount
-      } 則有瑕疵）。全對的人也會看到「為什麼正確」，不只有答錯才給回饋。</span>
-        </div>
-
         <div class="stack stack--sm">${items}</div>
-
-        <p class="cumulative-score">目前分類累積得分：${SERVER.totalScore}/36</p>
         <div class="note note--ai"><span><strong>階段性結論　</strong>${esc(
           feedbackData.conclusion || ''
         )}</span></div>
@@ -1238,8 +1248,12 @@
     }
 
     $('#modal').innerHTML = `
-      <div class="modal__head">
-        <h2 class="modal__title" id="modalTitle">此關的回饋</h2>
+      <div class="modal__head feedback-head">
+        <div class="feedback-heading">
+          <h2 class="modal__title" id="modalTitle">此關的回饋</h2>
+          ${detailed?'<p class="feedback-subtitle">你知道你這關哪些想法出了問題嗎</p>':''}
+        </div>
+        ${scoreHeader}
         <button class="modal__close" data-action="feedbackNext" aria-label="關閉並繼續">×</button>
       </div>
       <div class="modal__body">${body}</div>
@@ -1390,7 +1404,9 @@
       case 'onboardingNext':
         guard(async()=>{ const r=await CK.onboarding(SERVER.onboardingStep+1);SERVER.onboardingStep=r.step;render(); },'進度保存失敗'); break;
       case 'retryVideo':
-        $('#videoPh').hidden=true;$('#introVideo').load();break;
+        $('#videoPh').hidden=true;$('#introVideo').load();startVideo();break;
+      case 'startVideo':
+        startVideo();break;
       case 'retryVideoSave':
         $('#introVideo').dispatchEvent(new Event('ended'));break;
 
@@ -1655,6 +1671,7 @@
       }catch(e){if(status)status.innerHTML=`觀看進度尚未保存。<button class="btn btn--ghost" data-action="retryVideoSave">重試保存</button>`;}
     });
     if(v.readyState>=1){ph.hidden=true;if(saved?.position && saved.position<v.duration-0.5)v.currentTime=saved.position;}
+    startVideo();
   }
 
   const observer = new MutationObserver(wireVideo);
