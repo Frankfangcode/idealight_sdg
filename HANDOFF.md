@@ -22,7 +22,7 @@ PHP 8.2 全 27 個 API PHP 語法、45 個 JS 語法檢查通過；Windows 檔�
 
 ## main 收尾證據
 
-相容性提交 c756177 已快轉合併 main；main 的 MySQL 35/35、PHP 8.2／MariaDB 35/35 再測通過，程序退出碼均 0。原始紀錄 /tmp/idealight-revision/windows-main-mysql.log、windows-main-maria.log。Apache 快照 53 個 PHP／JS／存取設定檔與 main 逐位元組一致；此後只補文件。接續推送既有 origin/main 並比對遠端提交；沒有正式部署流程。工作區保留七支未追蹤的本機試播複製檔，原始 video.mp4 已納入 c756177，不包含 .env。
+相容性提交 c756177 已快轉合併 main；main 的 MySQL 35/35、PHP 8.2／MariaDB 35/35 再測通過，程序退出碼均 0。原始紀錄 /tmp/idealight-revision/windows-main-mysql.log、windows-main-maria.log。Apache 快照 53 個 PHP／JS／存取設定檔與 main 逐位元組一致；此後只補文件。已推送既有 origin/main，git ls-remote 確認遠端包含 2906f2d（程式 c756177 及 main 全測紀錄）；最後再提交此推送記錄。沒有正式部署流程。工作區保留七支未追蹤的本機試播複製檔，原始 video.mp4 已納入 c756177，不包含 .env。
 
 ## 環境與剩餘限制
 

@@ -27,4 +27,4 @@ MySQL 專用 collation 的匯入失敗；舊學生表外鍵定序不一致；Win
 - [x] MySQL 與 MariaDB 各跑全部測試；PHP/JS 語法檢查、Apache 私有路徑與公開資源檢查、Git 檔名大小寫／Windows 限制檢查。
 - [x] 更新 Windows XAMPP 安裝及資料庫新建／升級／搬移說明，包含 .env、憑證、站台根路徑與影片。
 - [x] 獨立審查、產品理解交付、HANDOFF 記錄各項成功／失敗／未驗證。
-- [ ] 來源全測通過後合併 main、main 重跑、push 並確認遠端；無既有部署流程不另建站。
+- [x] 來源全測通過後合併 main、main 重跑、push 並確認遠端；無既有部署流程不另建站。
