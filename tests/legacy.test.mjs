@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {student,api,sql,phase,base} from './helpers.mjs';
 test('an existing legacy run resumes its separate evidence and ranking phases',async()=>{
- const s=await student('2');sql(`DELETE FROM ck_run_settings WHERE run_id=(SELECT id FROM ck_runs WHERE stu_id='${s.id}')`);phase(s,'evidence');
+ const s=await student('1');sql(`DELETE FROM ck_run_settings WHERE run_id=(SELECT id FROM ck_runs WHERE stu_id='${s.id}')`);phase(s,'evidence');
  assert.equal((await api(s,'ck_state.php')).flowVersion,1);
  const placements=Object.fromEntries(['1','2','3','4','5','6'].map(k=>[k,'flaw']));
  assert.equal((await api(s,'ck_evidence.php',{levelNo:1,placements})).status,200);

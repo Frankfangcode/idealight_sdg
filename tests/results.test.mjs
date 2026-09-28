@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {student,api,sql} from './helpers.mjs';
 test('control results stay private until six levels and the post survey are completed',async()=>{
- const s=await student('2');
+ const s=await student('1');
  assert.equal((await api(s,'ck_results.php')).status,409);
  sql(`INSERT INTO ck_evidence(stu_id,level_no,char_key,zone,is_correct) SELECT '${s.id}',level_no,char_key,correct,1 FROM ck_testimonies`);
  sql(`INSERT INTO ck_judgments(stu_id,level_no,pick_char,reason,is_flaw) SELECT '${s.id}',level_no,'3','只有片段，不能下定論。',1 FROM ck_levels`);

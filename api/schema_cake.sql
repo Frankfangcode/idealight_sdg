@@ -224,9 +224,9 @@ CREATE TABLE IF NOT EXISTS ck_events (
 -- Additive only. Run against the selected database after schema_cake.sql.
 CREATE TABLE IF NOT EXISTS ck_allocation (
  id TINYINT NOT NULL PRIMARY KEY,
- next_group TINYINT NOT NULL DEFAULT 2
+ next_group TINYINT NOT NULL DEFAULT 1
 ) ENGINE=InnoDB;
-INSERT IGNORE INTO ck_allocation (id,next_group) VALUES (1,2);
+INSERT IGNORE INTO ck_allocation (id,next_group) VALUES (1,1);
 CREATE TABLE IF NOT EXISTS ck_run_settings (
  run_id INT NOT NULL PRIMARY KEY,
  flow_version INT NOT NULL DEFAULT 2,

@@ -23,15 +23,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $student['current_scenario'] = $progress->fetchColumn() ?: 1;
                 
                 session_regenerate_id(true);
-                ck_run($student['stu_id']);
+                $run = ck_run($student['stu_id']);
                 $_SESSION['stu_id'] = $student['stu_id'];
                 $_SESSION['stu_name'] = $student['name'];
 
                 // 從進度表撈出來的 current_scenario 數字。如果沒有紀錄(全新學生)，就預設給 1
                 $current_scenario = isset($student['current_scenario']) ? intval($student['current_scenario']) : 1;
 
-                // 獲取實驗組別欄位
-                $group = $student['group'] ?? '';
+                // 回傳本次回合的實際組別；首次分派前讀出的 student 可能仍為 NULL。
+                $group = $run['cond'] === 'control' ? '1' : '2';
 
                 echo json_encode([
                     'success' => true,

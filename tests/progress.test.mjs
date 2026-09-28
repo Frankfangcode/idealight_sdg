@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {student,api,phase,sql} from './helpers.mjs';
 test('cannot skip video to feedback or leave interrogation before its deadline',async()=>{
- const s=await student('2');
+ const s=await student('1');
  assert.equal((await api(s,'ck_advance.php',{levelNo:1,phase:'feedback'})).status,409);
  phase(s,'interrogation');
  assert.equal((await api(s,'ck_advance.php',{levelNo:1,phase:'combined'})).status,409);

@@ -24,9 +24,9 @@ test('review migration adds missing tables and does not reset existing assignmen
  mysqlScript("DROP TABLE ck_feedback_audit,ck_video_progress,ck_drafts,ck_run_settings,ck_allocation;INSERT INTO students(stu_id,name) VALUES('existing','既有學生');INSERT INTO ck_runs(stu_id,cond) VALUES('existing','control');",name);
  const migration=readFileSync('api/migrations/2026_09_review.sql','utf8');
  mysqlScript(migration,name);
- mysqlScript("UPDATE ck_allocation SET next_group=1;INSERT INTO ck_drafts(run_id,level_no,phase,payload,revision) SELECT id,1,'combined','{\"reason\":\"既有理由\"}',7 FROM ck_runs;",name);
+ mysqlScript("UPDATE ck_allocation SET next_group=2;INSERT INTO ck_drafts(run_id,level_no,phase,payload,revision) SELECT id,1,'combined','{\"reason\":\"既有理由\"}',7 FROM ck_runs;",name);
  mysqlScript(migration,name);
- assert.equal(sql(`SELECT next_group FROM ${name}.ck_allocation`),'1');
+ assert.equal(sql(`SELECT next_group FROM ${name}.ck_allocation`),'2');
  assert.equal(sql(`SELECT JSON_UNQUOTE(JSON_EXTRACT(payload,'$.reason')) FROM ${name}.ck_drafts`),'既有理由');
  assert.equal(sql(`SELECT name FROM ${name}.students`),'既有學生');
  assert.equal(sql(`SELECT COUNT(*) FROM ${name}.ck_run_settings`),'0');

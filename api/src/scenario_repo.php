@@ -175,8 +175,8 @@ function ck_grading_data(int $levelNo): array
  * 取得或建立這位受試者的實驗回合。
  *
  * 組別編碼（students.`group`）：
- *   '1' → 實驗組（AI 角色共享問話紀錄；每關結束即時回饋）
- *   '2' → 控制組（AI 角色彼此獨立）
+ *   '1' → 控制組（AI 角色彼此獨立）
+ *   '2' → 實驗組（AI 角色共享問話紀錄；每關結束即時回饋）
  *
  * 用數字而非 'experiment'／'control'，是為了不讓受試者從任何地方
  * （網址、localStorage、DevTools）看出自己被分到哪一組。
@@ -204,12 +204,12 @@ function ck_run(string $stuId): array
         $row = $student->fetch();
         if (!$row) throw new RuntimeException('Student not found');
         $group = trim((string)$row['group']);
-        if (in_array($group, ['2','control','控制組'], true)) $cond = 'control';
-        elseif (in_array($group, ['1','experiment','實驗組'], true)) $cond = 'experiment';
+        if (in_array($group, ['1','control','控制組'], true)) $cond = 'control';
+        elseif (in_array($group, ['2','experiment','實驗組'], true)) $cond = 'experiment';
         elseif ($group === '') {
             if (!in_array($next,[1,2],true)) throw new RuntimeException('Allocation not initialized');
             $group = (string)$next;
-            $cond = $next === 2 ? 'control' : 'experiment';
+            $cond = $next === 1 ? 'control' : 'experiment';
             $pdo->prepare('UPDATE students SET `group`=? WHERE stu_id=?')->execute([$group,$stuId]);
             $pdo->prepare('UPDATE ck_allocation SET next_group=? WHERE id=1')->execute([$next===2?1:2]);
         } else throw new RuntimeException('Unknown existing group; researcher must confirm');

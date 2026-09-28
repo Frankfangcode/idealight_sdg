@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {student,api} from './helpers.mjs';
 test('character introduction advances without a guide video; instructions and level-video completion remain required',async()=>{
- const s=await student('2');
+ const s=await student('1');
  assert.equal((await api(s,'ck_onboarding.php',{step:3})).status,409);
  assert.equal((await api(s,'ck_onboarding.php',{step:2})).status,200);
  assert.equal((await api(s,'ck_state.php')).onboardingStep,2);

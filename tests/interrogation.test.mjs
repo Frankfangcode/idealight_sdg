@@ -7,7 +7,7 @@ for(const group of ['1','2'])test(`interrogation group ${group}: streams, persis
  assert.equal(done.aiOk,true);assert.ok(lines.some(x=>x.t==='delta'));assert.ok(done.content);
  assert.equal(sql(`SELECT COUNT(*) FROM ck_chat_messages WHERE stu_id='${s.id}' AND role='character' AND ai_ok=1 AND model='local-test'`),'1');
  const messages=JSON.parse(execFileSync(config.phpBinary,['-r',`require 'api/src/interrogation.php';echo json_encode(ck_chat_messages_for(ck_run('${s.id}'),1,'2',ck_chat_history('${s.id}',1)));`],{env:config.phpEnv,encoding:'utf8'}));
- assert.equal(JSON.stringify(messages).includes(q),group==='1');
+ assert.equal(JSON.stringify(messages).includes(q),group==='2');
  const nudge=await api(s,'ck_nudge.php',{levelNo:1,charKey:'2'});assert.ok(nudge.content);
  assert.equal((await api(s,'ck_nudge.php',{levelNo:1,charKey:'2'})).content,null);
  sql(`UPDATE ck_phase_timers SET started_at=DATE_SUB(NOW(),INTERVAL 200 SECOND) WHERE stu_id='${s.id}'`);

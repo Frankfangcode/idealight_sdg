@@ -9,7 +9,7 @@ async function pageFor(s){
  return {browser,page};
 }
 test('onboarding starts with character cards and the first level unlocks only after its video ends',async()=>{
- const s=await student('2');const {browser,page}=await pageFor(s);
+ const s=await student('1');const {browser,page}=await pageFor(s);
  try{
  await page.goto(base+'/control/game.html');
  await page.getByRole('heading',{name:'六個人，六種說法'}).waitFor({timeout:5000});
@@ -25,7 +25,7 @@ test('onboarding starts with character cards and the first level unlocks only af
  }finally{await browser.close();assert.deepEqual(browser.pageErrors,[]);}
 });
 test('combined page preserves editable classifications and reasoning after reload, then submits once',async()=>{
- const s=await student('2');phase(s,'combined');
+ const s=await student('1');phase(s,'combined');
  sql(`UPDATE ck_run_settings SET onboarding_step=3 WHERE run_id=(SELECT id FROM ck_runs WHERE stu_id='${s.id}')`);
  const {browser,page}=await pageFor(s);
  try{
@@ -47,7 +47,7 @@ test('combined page preserves editable classifications and reasoning after reloa
  }finally{await browser.close();assert.deepEqual(browser.pageErrors,[]);}
 });
 test('post-survey results show detective rank and saved feedback with no additional questionnaire',async()=>{
- const s=await student('2');
+ const s=await student('1');
  sql(`INSERT INTO ck_evidence(stu_id,level_no,char_key,zone,is_correct) SELECT '${s.id}',level_no,char_key,correct,1 FROM ck_testimonies; INSERT INTO ck_judgments(stu_id,level_no,pick_char,reason,is_flaw) SELECT '${s.id}',level_no,'3','觀察有時間範圍的限制。',1 FROM ck_levels; UPDATE ck_runs SET finished_at=NOW() WHERE stu_id='${s.id}'; UPDATE ck_progress SET level_no=7 WHERE stu_id='${s.id}'; INSERT INTO ck_surveys(stu_id,kind,opened_at,completed_at) VALUES('${s.id}','post',NOW(),NOW())`);
  const {browser,page}=await pageFor(s);
  try{
@@ -61,7 +61,7 @@ test('post-survey results show detective rank and saved feedback with no additio
  }finally{await browser.close();assert.deepEqual(browser.pageErrors,[]);}
 });
 test('retry recovers when submission committed but its network response was lost',async()=>{
- const s=await student('2');phase(s,'combined');
+ const s=await student('1');phase(s,'combined');
  sql(`UPDATE ck_run_settings SET onboarding_step=3 WHERE run_id=(SELECT id FROM ck_runs WHERE stu_id='${s.id}')`);
  const {browser,page}=await pageFor(s);let lost=false;
  try{
@@ -81,7 +81,7 @@ test('retry recovers when submission committed but its network response was lost
  }finally{await browser.close();assert.deepEqual(browser.pageErrors,[]);}
 });
 test('reconnect archives offline interrogation text after moving to combined',async()=>{
- const s=await student('2');phase(s,'interrogation');
+ const s=await student('1');phase(s,'interrogation');
  sql(`UPDATE ck_run_settings SET onboarding_step=3 WHERE run_id=(SELECT id FROM ck_runs WHERE stu_id='${s.id}')`);
  const {browser,page}=await pageFor(s);
  try{
@@ -94,7 +94,7 @@ test('reconnect archives offline interrogation text after moving to combined',as
  }finally{await browser.close();assert.deepEqual(browser.pageErrors,[]);}
 });
 test('mobile layout keeps timer visible, escapes drafts, and shows inline final-15-second warning',async()=>{
- const s=await student('2');phase(s,'combined');
+ const s=await student('1');phase(s,'combined');
  sql(`UPDATE ck_run_settings SET onboarding_step=3 WHERE run_id=(SELECT id FROM ck_runs WHERE stu_id='${s.id}')`);
  const {browser,page}=await pageFor(s);
  try{
@@ -112,7 +112,7 @@ test('mobile layout keeps timer visible, escapes drafts, and shows inline final-
  }finally{await browser.close();assert.deepEqual(browser.pageErrors,[]);}
 });
 test('finished run archives the last offline draft before redirecting to the post survey',async()=>{
- const s=await student('2');
+ const s=await student('1');
  sql(`UPDATE ck_progress SET level_no=7 WHERE stu_id='${s.id}';UPDATE ck_runs SET finished_at=NOW() WHERE stu_id='${s.id}'`);
  const {browser,page}=await pageFor(s);
  try{

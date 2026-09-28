@@ -9,8 +9,8 @@ for(const group of ['1','2'])test(`six-level workflow for group ${group}: timers
  assert.equal((await api(s,'ck_advance.php',{levelNo:n,phase:'combined'})).status,200);
  const placements=Object.fromEntries(sql(`SELECT char_key,correct FROM ck_testimonies WHERE level_no=${n}`).split('\n').map(r=>r.split('\t')));
  assert.equal((await api(s,'ck_response.php',{levelNo:n,placements,pickChar:'3',reason:'從看到的片段還不能推論到完整結論。'})).status,200);
- const feedback=await api(s,'ck_feedback.php',{levelNo:n});assert.equal(feedback.detailed,group==='1');
- if(group==='1')assert.equal(feedback.totalScore,n*6);else {assert.equal(feedback.totalScore,undefined);assert.equal(feedback.ai,undefined);}
+ const feedback=await api(s,'ck_feedback.php',{levelNo:n});assert.equal(feedback.detailed,group==='2');
+ if(group==='2')assert.equal(feedback.totalScore,n*6);else {assert.equal(feedback.totalScore,undefined);assert.equal(feedback.ai,undefined);}
  assert.equal((await api(s,'ck_advance.php',{levelNo:n,nextLevel:true})).status,200);
  }
  assert.equal(sql(`SELECT COUNT(*) FROM ck_feedback_audit a JOIN ck_feedback f ON f.id=a.feedback_id WHERE f.stu_id='${s.id}'`),'6');

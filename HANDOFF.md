@@ -1,3 +1,47 @@
+# 本輪狀態：沉浸感改版前存檔（2026-09-28）
+
+使用者核可先做章節名稱露出、訊問角色資訊、分類與推理版面整理，並明確要求「改之前先把這版 git 保存一下」。此存檔仍為改版前程式，包含已驗收的 1 控制／2 實驗編號修正、保留既有條件的 migration、最新版角色 4／5 圖片與交接。先保存並整合既有 origin/fix/xiaomai-ui-followup 的 18b6e63 文件／素材，再推送同一分支；不合併 main，不執行正式部署。大型影片、本機設定、學生資料與私密 migration 對照均不提交。
+
+改版前重跑既有 13 項局部測試與本機真實 HTTP 分組／回饋／越權檢查；全部通過後才提交。全套測試仍受不可建立／刪除其他資料庫約束，本次依使用者要求保存現況，不將 checkpoint 說成全套正式施測验收。改版將沿用原章節／證詞文字、不新增線索、提示、問答、計時或組間差異；以現有淺灰紙白與人物圖片實作，保留 80% 桌機與手機閱讀。
+
+---
+
+# 本輪狀態：1 控制組／2 實驗組已修正，歷史編號已對齊（2026-09-28）
+
+使用者要求「改成1是控制組 2是實驗組」，並明確選擇「保留既有實驗條件，只調整編號」。本輪修正 `api/src/scenario_repo.php` 的預設數字對應與交替分派解讀；`api/public/login.php` 改由本回合實際 cond 回傳新數字，修復首次自動分派後仍回空白的問題。全新資料庫初始化與 2026_09_review 的 allocation 預設從 1 開始；既有 next_group 不重設，保留原數字接續交替。schema 的其他設定、計時、實驗差異不變。
+
+新增 `api/migrations/2026_09_group_codes.sql`，以凍結的 ck_runs.cond 對齊 students.group：control→1、experiment→2，包括原 NULL 帳號；沒有回合的帳號不改，重跑無更新。已經使用者核可後才執行。`README.md`、`PRODUCT.md`、`docs/open-questions.md` 記錄新規則及已結案決策；測試的控制／實驗 fixture 數字同步調整，group.test 加上顯式編號與歷史標籤轉換驗證。
+
+產品理解：學生表數字是「名牌」，回合 cond 是實際接受的實驗方式。主方案只換名牌、保持歷史條件與作答；替代方案是保持原編號卻切換條件，會造成中途換組，使用者未採用。新登入先讀固定回合，只有沒有回合才按照指定組別／分派序號建立；伺服器決定對話共享與回饋權限。沒有新外部相依或費用，沒有重設學生進度。
+
+紅綠證據：`.screenshots/group-mapping/check.php` 先以精確合成帳號在指定 idealightsdg_cake 呼叫真實 ck_run，觀察 1 預期 control 卻取得 experiment（exit 1）；修正後 1/control、2/experiment、回饋旗標與重新進入穩定均通過。另一個實際 HTTP/PHP/MySQL `.screenshots/group-mapping/http-check.mjs` 先觀察首次登入 group 空字串與已分派的 1 不同（exit 1），修正 login 回傳後通過。
+
+歷史轉換：`.screenshots/group-mapping/migrate.php preview` 在交易內執行相同 SQL、驗證後回滾；apply 前以建立新檔的方式保存 `.screenshots/group-mapping/before-relabel.json`（含學生識別碼，僅本機且忽略追蹤，切勿提交）。apply 轉換 8 筆，未對齊 0 筆，再執行同 SQL 更新 0 筆，正式提交交易。之後再次核對各資料表排序後的內容 SHA256 與轉換前相同：回合、進度、設定、分類、理由、訊問、草稿、回饋、計時、問卷、影片進度、事件均未改；next_group 仍為原數值。`GROUP BY students.group,ck_runs.cond` 結果為控制組 1 共 2 帳號、實驗組 2 共 6 帳號。量測先由舊資料不一致與已知合成帳號校準，未以空輸出當作成功。
+
+同步前以 git blob 驗證實際站 scenario_repo.php／login.php 與 HEAD 原版相同，備份 `.screenshots/group-mapping/*before`；同步至 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site`，SHA256 相同，再執行核可的既有庫編號轉換。實際 `http://127.0.0.1:18079` 重跑 HTTP 驗證通過。
+
+施測者／學生 QA 與本輪權限相關安全模擬（僅本機合成帳號）：新帳號自動交替且首次登入回傳一致；1 無跨角色共享、state 不含分數、作答後不洩漏詳細回饋；2 共享同關合成訊問且取得詳細回饋。回饋預置合成快取，不呼叫付費 AI。兩組未作答回饋 409、未登入 state 401、客戶端偽造 group/cond/stuId 不能換組或取得他人權限；未知既有組別登入失敗且不建立回合。重登保持單一回合。四張既有照片與其他修改均保留。合成帳號精確匹配 id+測試名稱清除，外鍵事先核對，驗證資料消失且帳號無法再登入。私密對照檔、.env、api/src 的 HTTP 存取皆 403。
+
+回歸：既有 PLAYWRIGHT_MODULE／TEST_PHP_BINARY 下 `node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs` → 13 通過、0 失敗、0 跳過、exit 0。兩份 PHP 語法、所有本輪變更 mjs 語法及 git diff --check 通過。新增與調整的資料庫全套測試仍因會建刪其他庫而未執行，本輪以限定既有庫、合成帳號的真實邊界驗證補足局部證據；不能宣稱全套通過。
+
+工作區仍 fix/xiaomai-ui-followup@ae03751，origin 已有 18b6e63 的角色圖與文件更新；未覆蓋該遠端提交，未合併 main／提交／push。本輪更新已套用本機服務與指定資料庫；沒有正式部署流程。下一步是使用者按新編號管理學生；若另行部署其他環境，需先備份學生組別對照，再執行本輪 migration，不能只更新 PHP 而忽略舊標籤。技能：product-owner-teaching、systematic-debugging、test-driven-development、verification-before-completion。
+
+---
+
+# 本輪狀態：抓取新版角色 4／5 照片並同步本機站（2026-09-28）
+
+使用者確認「幫我把照片抓下來」。從已 fetch 的遠端 `fix/xiaomai-ui-followup@18b6e637edbce1f91c3adf4edba32223375cb027` 提取 `assets/img/game/char_4.jpg`、`char_5.jpg`、`avatar_4.jpg`、`avatar_5.jpg`，更新工作區與既有 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site`。大圖與小頭像一起換，避免介紹與訊問顯示不同版本。只取四張圖片，沒有合併同次提交的其他文件／素材。本機分支 HEAD 仍 ae03751，遠端已是 18b6e63，四張圖在工作區表現為修改；不要把這些已在遠端的圖片重複提交或用舊本機狀態覆蓋遠端。本輪 HANDOFF 為本機新增交接。
+
+寫入前逐檔確認工作區與站點均等於原 HEAD，備份至 `.screenshots/character-review/before/`。來源圖片為羅四影攜相機、許五澄戴眼鏡持筆電；直接取 Git 原始二進位，不重新製圖或壓縮。小頭像 192×192、大圖 597×800。角色資料、分組、對話、答案與第一關影片均不變，沒有資料庫／付費操作。採同路徑替換讓既有頁面直接使用；替代的改檔名需修改更多引用，本輪不需要。瀏覽器如保留舊快取可 Ctrl+F5。
+
+驗證 `.screenshots/character-review/check.mjs`：第一輪工作區、第二輪實際站 `http://127.0.0.1:18079/control/game.html`，各用桌機 1280×800／手機 375×812。四張 HTTP 圖片均 200，SHA256 與遠端提取圖片一致；校準與寫入前比對已證明舊版和新版不同。六張角色圖片正常解碼、無水平溢出、角色 4／5 訊問選擇正常，無 pageerror，兩輪 exit 0。瀏覽器使用合成 API，不碰真實學生與 AI。最終截圖 `.screenshots/character-review/round2-desktop.png`、`round2-mobile.png`；兩輪各兩張均讀回。學生與施測者簡短 QA 確認角色照片／姓名对应且兩種尺寸可辨識。
+
+八項自評兩輪通過：層次（標題／人物／操作沿用）、留白（保留已核可 80%）、字體（既有字系）、配色（新圖同系列暗色人像）、對齊（卡片框不變）、響應式（桌機完整六人，手機可捲動）、狀態（選人可用／圖片載入成功）、動效（沿用既有回饋，無新增動畫）。Impeccable 自動引擎仍不可用，人工檢視，未宣稱自動掃描通過。純圖片替換沒有新增永久程式測試；全套資料庫測試仍受既有約束，未執行，未合併 main／推送／正式部署。照片來源已存在遠端，本輪不需要再上傳。下一步為使用者重新整理檢視；待續事項仍是分組數字對應修正。
+
+已套用 product-owner-teaching、impeccable、playwright-cli、verification-before-completion；沿用前端與 QA 詳規。本輪保留全部既有未追蹤影片與 .claude 本機設定。
+
+---
+
 # 本輪狀態：依使用者要求保存目前程式碼並推送既有分支（2026-09-28）
 
 使用者要求「先幫我把這個版本的 code 推上 git」。本輪範圍是現況存檔至 `origin/fix/xiaomai-ui-followup`，來源 HEAD `8807e0f`；不是宣稱正式施測驗收完成，不合併 main、不部署。本次包含標頭修正、新版說明圖與提示詞、移除錯誤開場影片的前後端與測試、80% 桌機排版及產品／交接文件。沒有新功能或沉浸感改版。
