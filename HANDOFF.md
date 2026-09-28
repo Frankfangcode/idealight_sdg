@@ -189,6 +189,30 @@ Git：開工時已追蹤檔案沒有未提交差異，只有 `.claude/settings.l
 
 ---
 
+# 本輪狀態：CapCut 授權嘗試與六關草稿阻塞（2026-09-26）
+
+使用者明確要求授權已安裝的 `capcut_creation`，依 `docs/ai-video-story-brief.md` 製作六關可編輯草稿，且每次扣點生成前先顯示預估點數。沿用工作分支 `fix/xiaomai-ui-followup`，保留開工時既有的 `HANDOFF.md`、影片指南、故事稿與七支未追蹤試播 MP4，沒有覆寫素材。
+
+依 CapCut `mcp-auth` 流程檢查：本機外掛 0.2.0 的線上版本查詢回報 `unknown`（安裝文件無法取得）；原生 Codex CLI 確認 `capcut_creation` 已啟用；本輪沒有可呼叫的受保護 `capcut_creation` 工具。授權前兩個指定地區查詢均因 DNS 無法解析而失敗，因此**地區未經驗證**。登入 helper 取得官方 `www.capcut.com` OAuth 授權網址，但 Codex 內建瀏覽器回報 `Browser is not available: iab`；依技能規定未改用系統瀏覽器，已中止同一 helper，完成事件為 `success:false`、`Authorization was interrupted before completion`。沒有登入成功、草稿、生成、扣點或網站影片替換。
+
+下一步：在可用的 Codex 內建瀏覽器工作階段重新執行官方 OAuth，等待 helper 成功完成，再檢查受保護工具是否可用；逐關建立可編輯草稿。每一次扣點生成都先展示該次模型、參數與預估點數，等使用者確認後才提交。授權頁的密碼與驗證碼只由使用者在官方頁輸入，不傳到對話。此輪未全測、合併、推送或部署，因六關成品尚未建立。技能：`CapCut:mcp-auth`、`CapCut:video-editing`、`hyperframes`（確認使用者明確指定 CapCut）、`product-owner-teaching`。
+
+---
+
+# 本輪狀態：CapCut × Codex 外掛安裝與指定 Word 製片稿（2026-09-26）
+
+使用者指定 `~/Downloads/消失的月蝕巧克力莓果千層蛋糕_六關角色對話_教師解析版(1).docx` 作為六關影片版本，並要求連接 Codex／CapCut 製片。工作分支 `fix/xiaomai-ui-followup`，開工 HEAD `8807e0f`；原有七個未追蹤 `media/intro-*.mp4` 均保留，未覆蓋。Word 擷取文字 SHA-256 `7c87600baca2c703862f6f97e84399121d30fd6d7e3e4526333ef246481b1d02`，與同目錄不帶 `(1)` 的檔案擷取文字相同。本輪依使用者指定檔製作[六關製片工作稿](docs/ai-video-story-brief.md)，並更新[AI 影片指南](docs/ai-video-production-guide.md)的工具狀態；逐關保留揭露順序，教師解析不放進前五關。
+
+CapCut 官網的 [CapCut × Codex](https://www.capcut.com/tools/capcut-x-codex) 指向官方安裝說明與外掛包。安裝包來自其指定 HTTPS 位址；先檢查 ZIP 路徑／展開大小及 manifest。使用目前 `/Applications/ChatGPT.app/Contents/Resources/codex` 安裝 `CapCut@CapCut` **0.2.0** 到本機 Codex；`plugin list` 顯示 installed/enabled，`mcp get capcut_creation --json` 顯示 enabled 並指向 `https://www.capcut.com/api/external_mcp`。這是外掛**安裝完成**，不是 CapCut 帳號授權完成。沒有修改專案程式或新增相依。
+
+本次對話的 Codex 內建瀏覽器不可用，且沒有可呼叫的 CapCut MCP 工具；因此未執行外掛 OAuth 授權，也未透過外掛生成／剪輯。官方說明的授權前國家查詢（`ifconfig.co`）遭自動批准審核拒絕，理由是會向 CapCut 以外第三方送出裝置網路資訊；未改用替代查詢繞過。下次應在新 Codex 工作階段只執行 `capcut_creation` 授權，再讀製片稿操作外掛；不重新安裝，不登入 `capcut_creation_resource`。登入憑證與驗證碼只在官方授權畫面輸入，不貼到對話。
+
+macOS CapCut 9.4.7-beta1 已登入；AI 影片介面可見 Dreamina Seedance 2.5／2.0／2.0 Fast／2.0 Mini、MiniMax H3。Seedance 2.5 的當下 10 秒／720p 設定顯示估計 370 點、餘額 1,200 點（直接讀取編輯器欄位，非六片成本）。點進 AI 影片時 CapCut 自動建立空白專案 `0926`；未按生成，未扣點，未輸入故事素材，未匯出影片。先做分鏡與準確文字，再逐鏡估點；若需要付費或超出已持有點數，先取得具體成本決策。
+
+驗證：Word 六段開頭實際擷取、兩份 Word 擷取文字雜湊一致；外掛安裝與 MCP URL 透過 Codex CLI JSON 確認；`git diff --check` 通過。此輪是製片輸入與安裝，沒有正式影片可做學生／教師播放 QA；情境審查與未來驗收已寫入製片稿。未跑可能建立／刪除其他資料庫的專案全測，未碰唯一指定庫 `idealightsdg_cake`。未合併／推送／部署，原因是正式影片與帳號授權未完成，既有全測限制也仍在。剩餘待決：第三關 Word「原始檔」稱呼與 AI 角色補充回答的提前揭露風險；本輪按 Word 原文記錄，不擅改研究內容。技能：using-superpowers、product-owner-teaching、docx、hyperframes（僅確認使用者已指定 CapCut）、computer-use。
+
+---
+
 # 本輪狀態：依明確要求推送目前分支（2026-09-26）
 
 推送結果：首次自動批准審核因目的地所有權未確認而拒絕；使用者隨後明確確認允許上傳至Frankfangcode/idealight_sdg的fix/xiaomai-ui-followup分支。重新推送成功，`git ls-remote`確認遠端提交為`c4d92f572c16805e526be261081bb9982f53aac8`，main仍為`1bda91d3afa13563a9de8053dffcce72d581e86e`。該提交包含影片指南與核對／環境文件，並包含既有畫面修正祖先提交。此後僅補本段推送紀錄；沒有程式變動，沿用上一輪12項局部測試證據。`.claude/`仍為未追蹤的本機設定；未部署網站。
