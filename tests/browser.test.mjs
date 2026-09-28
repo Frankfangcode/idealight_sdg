@@ -8,15 +8,12 @@ async function pageFor(s){
  await page.route('**/media/*.mp4',route=>route.fulfill({path:fileURLToPath(new URL('./fixtures/one-second.mp4',import.meta.url)),contentType:'video/mp4'}));
  return {browser,page};
 }
-test('onboarding shows one task per page and unlocks next only after video ends',async()=>{
+test('onboarding starts with character cards and the first level unlocks only after its video ends',async()=>{
  const s=await student('2');const {browser,page}=await pageFor(s);
  try{
  await page.goto(base+'/control/game.html');
- await page.getByRole('heading',{name:'觀看調查說明'}).waitFor({timeout:5000});
- assert.equal(await page.getByRole('button',{name:'誰該負責？'}).isVisible(),false);
- await page.locator('video').evaluate(v=>v.play());
- await page.getByRole('button',{name:'誰該負責？'}).click();
- await page.getByRole('heading',{name:'六個人，六種說法'}).waitFor();
+ await page.getByRole('heading',{name:'六個人，六種說法'}).waitFor({timeout:5000});
+ assert.equal(await page.locator('video').count(),0);
  assert.equal(await page.locator('.roster__item').count(),6);
  await page.getByRole('button',{name:'調查須知'}).click();
  await page.getByRole('button',{name:'開始調查'}).click();

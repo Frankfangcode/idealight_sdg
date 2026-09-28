@@ -1,8 +1,7 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {student,api,sql} from './helpers.mjs';
 for(const group of ['1','2'])test(`six-level workflow for group ${group}: timers, saved feedback, post survey and score`,async()=>{
  const s=await student(group);
- await api(s,'ck_video.php',{levelNo:0,position:1,duration:1,completed:true});
- for(const step of [1,2,3])assert.equal((await api(s,'ck_onboarding.php',{step})).status,200);
+ for(const step of [2,3])assert.equal((await api(s,'ck_onboarding.php',{step})).status,200);
  for(let n=1;n<=6;n++){
  assert.equal((await api(s,'ck_video.php',{levelNo:n,position:1,duration:1,completed:true})).status,200);
  for(const p of ['testimony','interrogation'])assert.equal((await api(s,'ck_advance.php',{levelNo:n,phase:p})).status,200);

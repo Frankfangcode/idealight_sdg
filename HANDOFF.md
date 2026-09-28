@@ -1,3 +1,150 @@
+# 本輪狀態：依使用者要求保存目前程式碼並推送既有分支（2026-09-28）
+
+使用者要求「先幫我把這個版本的 code 推上 git」。本輪範圍是現況存檔至 `origin/fix/xiaomai-ui-followup`，來源 HEAD `8807e0f`；不是宣稱正式施測驗收完成，不合併 main、不部署。本次包含標頭修正、新版說明圖與提示詞、移除錯誤開場影片的前後端與測試、80% 桌機排版及產品／交接文件。沒有新功能或沉浸感改版。
+
+重要已知問題：唯讀核對 `api/src/scenario_repo.php` 與實際本機站（SHA256 相同）確認目前 `1 → experiment`、`2 → control`，與使用者／小麥要求「1 控制組、2 實驗組」相反。本輪保留現況，下一輪優先處理數字對應與已開始回合的相容策略；ck_runs.cond 在建立時固定，不能只改 students.group 就宣稱修好。NULL 是学生欄位尚未填值，新回合會交替分派。未修改任何学生、回合或分派計數器。
+
+素材範圍：提交 `assets/img/game/experiment-overview.png` 及其提示詞；`media/第一關.mov`、`media/intro-L1.mp4`（約 225 MB）、`media/edit/` 的轉檔副本／備份／驗收產物仍只留本機，不包含在此次 code 推送。重新拉取程式碼不會取得第一關正式影片，需另放同路徑素材，不能誤認 repo 的試播素材為正式片。`.claude/`、.env、學生資料及 .screenshots 驗收記錄亦不提交。
+
+產品理解：Git 提交是能回復的版本存檔，推送是把存檔同步到既有遠端；此次保存可以繼續修改組別及體驗而保留回復點。沿用現有修正分支，替代的 main 合併會跨入尚未完成的全套驗收，因此不採用。沒有資料庫遷移、外部相依或新增費用。前端／後端與既有本機站維持目前行為。
+
+本輪重新執行 `node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs`，使用既有 PLAYWRIGHT_MODULE／TEST_PHP_BINARY，Node TAP 13 通過、0 失敗、0 跳過、exit 0。PHP ck_onboarding 語法、app.js 與變更的 browser/video/workflow JS 語法、git diff --check 均通過。仍未跑會建立／刪除其他資料庫的全套測試；前述兩輪畫面與真實本機 onboarding 證據沿用。GitHub 一般沙箱連線失敗，需要受控網路權限推送；最終遠端提交驗證另於對話回報。
+
+技能：product-owner-teaching、verification-before-completion。
+
+---
+
+# 本輪狀態：桌機遊戲頁 80% 密度已同步本機站（2026-09-28）
+
+使用者指出畫面塞不下、80% 比較合適。沿用既有設計，僅修改 `assets/css/game/review.css`：視窗至少 1100px 時 root zoom .8；補償 body/app 與滿版回饋視窗的視窗高度；角色介紹去掉標題、說明、角色列及操作區的疊加 margin，統一區塊 gap 20px，照片原尺寸高度改 200px（顯示 160px）。手機與較窄視窗保持原字級與捲動。DESIGN.md 記錄此核可方向。分支仍 fix/xiaomai-ui-followup@8807e0f，先前所有未提交內容保留。
+
+產品理解：樣式表像印刷排版規則，讓瀏覽器 100% 時就有桌機 80% 視覺；同一設定涵蓋角色、影片、作答及回饋頁。替代為每台瀏覽器手動縮放，但施測不易一致，所以選網頁統一處理。沒有後端、答案保存、計時或資料結構變更，沒有資料庫寫入、新相依或費用。縮小會讓文字變小，因此手機不縮；較短視窗及長內容仍可捲動，並非所有頁面硬塞成一屏。
+
+驗證腳本 `.screenshots/density/check.mjs` 使用既有 Chrome/Playwright 與 ui-harness 合成 API，沒有呼叫真實學生 API。先在原版觀察 1280×800 的 next button bottom=1152.96875，超過 800 而 exit 1；套用後量得 760.484375 且 exit 0。量測用 getBoundingClientRect 與 innerHeight，原版已作已知失敗校準。第一輪工作區、第二輪本機站均檢查角色圖片解碼、無橫向溢出、鍵盤前進、第一關影片可容納、分類推理輸入及回饋分數／底部操作可見。初版驗收腳本誤填不存在的 classify 階段造成等待逾時，查明契約改為 combined 後通過；未改產品流程以遷就測試。第二輪使用與截圖一致的完整提問文字，桌機仍可一屏看六人和按鈕。
+
+前端兩輪各桌機 1280×800、手機 375×812 截圖已讀回：`.screenshots/density/round1-desktop.png`、`round1-mobile.png`、`round2-desktop.png`、`round2-mobile.png`。八項自評兩輪皆通過：層次（主標／角色／行動清楚）、留白（桌機消除疊加間距、照片文字成組）、字體（沿用 Work Sans 與中文後備、手機保持原尺寸）、配色（沿用灰白與橘色）、對齊（三欄卡片與右下按鈕）、響應式（手機雙欄可捲動、無橫向溢出）、狀態（键盤及既有播放／保存失敗重試測試通過）、動效（沿用按鈕回饋，沒有新增動畫）。Impeccable 引擎沿用不可用限制，人工按既有 PRODUCT/DESIGN 與技能檢查，沒有宣稱自動掃描已通過。
+
+學生／施測者簡短 QA：在桌機不必先捲動才能看到第二排角色與下一步；手機保持可讀，角色、須知與第一關流程正常；作答及回饋控制可用。沒有發現本輪新增缺陷。僅樣式調整，未觸發完整資安模擬。影片素材與 AI 實際服務不在本輪驗收。
+
+必要局部回歸：使用既有 PLAYWRIGHT_MODULE／TEST_PHP_BINARY，`node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs` → Node TAP 13 通過、0 失敗、0 跳過、exit 0。未新增瑣碎永久 CSS 斷言；保留本輪驗收腳本。全測仍受「僅使用既有 idealightsdg_cake、不建刪其他庫」限制，未執行，未提交／合併／push，未宣稱正式部署。
+
+同步前確認實際站 review.css 的 Git blob 與 HEAD 相同，備份 `.screenshots/density/review-before.css`，再同步單一 CSS 至 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site/assets/css/game/review.css`；SHA256 一致，第二輪直接讀 `http://127.0.0.1:18079/control/game.html` 驗收。使用者瀏覽器若已設 80%，應先 Ctrl+0 回 100%，避免重複縮小；再依需要重新整理。技能：product-owner-teaching、impeccable、emil-design-eng、test-driven-development、playwright-cli、verification-before-completion。
+
+---
+
+# 本輪狀態：移除錯誤開場影片，已同步本機站（2026-09-28）
+
+使用者明確指出沒有製作角色介紹影片。根因是 app.js 的 onboarding step 0 播放舊 intro-guide.mp4，且 ck_onboarding.php 要求看完它才能繼續。現在流程為六人圖文介紹 → 調查須知 → 使用者提供的第一關影片 → 六人發言；前一頁按鈕改為「認識案件角色」。舊 step 0／1 都顯示角色卡，前後端一起調整，允許 0 → 2，但仍拒絕 0 → 3；第一關影片仍須看完。保留舊影片檔與歷史欄位但不再請求或播放，不修改資料結構、不重設既有學生進度。第一關 intro-L1.mp4 本輪沒有變更。
+
+工作分支 fix/xiaomai-ui-followup@8807e0f；先前 login、說明圖、同意頁及 media 未提交修改完整保留。本輪修改 app.js、ck_onboarding.php、consent 按鈕，以及 PRODUCT.md、README.md、media/README.txt 和四份既有測試。局部決定採程式相容既有步驟編號，如同替舊進度加轉接頭，讓學生接續正確頁面；比重寫資料庫進度更容易回復，也不需要不存在的介紹影片。瀏覽器送出閱讀完成步驟，PHP 檢查順序，再由 MySQL 保存；隱藏影片而不改後端會卡住，因此兩端同時修正。
+
+紅綠證據：新增角色卡瀏覽器案例在修正前因找不到角色卡失敗；真實 HTTP/PHP/MySQL 檢查在修正前因 step 2 回 409 失敗，修正後兩者通過。API 檢查涵蓋未登入 401、非法步驟 400、跳步 409、重新載入、重複操作、進度不倒退、第一關影片未看完不可進入發言、完成後可進入，並確認沒有 level 0 影片紀錄。檢查腳本早期的清理驗證誤用 GET 登入已改為 POST，重新觀察有效的紅綠結果。
+
+實際邊界檢查僅使用指定 idealightsdg_cake，由 `.screenshots/onboarding/fixture.php` 建立隨機 ob_ 測試帳號；先驗證相關外鍵級聯規則，只清理精確測試帳號及合成資料，再確認帳號不能登入。未建立或刪除資料庫、未碰既有學生資料、不呼叫付費 AI。`.screenshots/onboarding/api-check.mjs` 在臨時 PHP 與實際 Apache 網址各通過一次，fixture removed=true；臨時程序已結束。
+
+驗證：使用既有 PLAYWRIGHT_MODULE、TEST_PHP_BINARY，執行 `node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs`，Node TAP 13 通過、0 失敗、0 跳過，exit 0。app.js 與變更測試檔 node --check、PHP 語法檢查、git diff --check 通過。browser/video/workflow 資料庫套件本輪只作語法檢查，未宣稱全套通過。
+
+前端兩輪桌機 1280×800、手機 375×812 截圖已逐張檢視：`.screenshots/onboarding/round1-desktop.png`、`round1-mobile.png`、`round2-desktop.png`、`round2-mobile.png`。第一輪工作區，第二輪實際本機站（UI 測試 API 使用合成回應，另有上段真實後端驗證）。八項自評：佈局保留桌機三欄／手機兩欄、間距沿用既有卡片規則、中文字體可讀、既有色彩不新增、標題卡片對齊、響應式無水平溢出、鍵盤可操作且重載進度正確、沿用互動且不新增動效；兩輪均合格，長頁需向下捲動。六張角色圖片正常解碼，無開場 video／intro-guide 請求，進入第一關來源正確。Impeccable 引擎仍不可用，沿用已讀產品／設計與人工自檢，未宣稱自動掃描通過。
+
+學生／施測者 QA：讀角色 → 須知 → 第一關的資訊與按鈕一致，無無關影片誤導。後端權限與流程檢查限自有本機及合成帳號，拒絕未登入與跳關；未擴及第三方、正式站或真實研究作答。沒有本輪未修復的已證實缺陷；後續關卡素材與整體 AI 服務仍依先前限制，未在本輪宣稱完成驗收。
+
+本機同步：覆寫前確認 app.js／ck_onboarding.php 與原 HEAD 相同，consent 與上一輪已套用版本相同，備份於 `.screenshots/onboarding/*before`；依後端、前端、同意頁順序同步至 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site`，三檔 SHA256 一致。網址 `http://127.0.0.1:18079/`；實際站 API 和第二輪 UI 檢查通過，game HTTP 200、未登入 state 401、.env 403。原頁 Ctrl+F5 即可載入新版，不需重設帳號。
+
+收尾限制：仍遵守只使用既有資料庫的要求，未執行會新建／刪除其他庫的全套測試，未提交、合併 main 或 push，沒有正式部署流程；本機站已更新。下一步為使用者在原頁重新整理確認。已套用 systematic-debugging、product-owner-teaching、test-driven-development、impeccable、emil-design-eng、karpathy-guidelines、playwright-cli、verification-before-completion。
+
+---
+
+# 本輪狀態：新版說明圖已套用本機網頁（2026-09-28）
+
+使用者確認「好套用吧」。已將 control/consent.html 的舊 SDG f1.png 換成 `assets/img/game/experiment-overview.png`，加入精確圖片尺寸、描述六關流程／計時／計分的替代文字，以及點圖在新分頁查看完整尺寸的入口（rel=noopener）。圖片按頁面寬度等比縮放，手機縮圖用於看全貌，細字可開原圖放大。未變動同意核取方塊、開始按鈕、登入或資料庫程式。上方90–100分鐘／休息／禮券原文仍保留，因本輪只確認套用圖片、未提供新的施測條件；開工已明說此範圍。
+
+開工分支 fix/xiaomai-ui-followup@8807e0f；保留既有 login.html、HANDOFF、影片、生成素材及 .claude 等全部差異。同步前以 git blob 確認試玩副本 consent.html 與 HEAD 一致，備份於 `.screenshots/consent-overview/consent-before.html`，再同步新圖片與頁面到既有 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site`。工作區／執行副本 SHA256 均一致。原網址：`http://127.0.0.1:18079/control/consent.html`。
+
+驗收工具 `.screenshots/consent-overview/check.mjs`：先在原版看到圖片仍為 f1.png 而 exit 1，再完成替換；兩輪桌機1280×800／手機375×812均 exit 0。確認新圖載入（naturalWidth=1672）、不橫向溢出、鍵盤可聚焦圖片並用Enter開完整原圖、未同意時按鈕停用、勾選後啟用、取消再停用，最後勾選並前往 game.html。無 pageerror。第一輪讀工作區頁面／圖，第二輪直接讀實際網站；僅封鎖外部字型與 API，將最終 game.html 導航攔為驗收頁，不操作真實學生或寫入資料庫。
+
+两輪均讀回截图；最終證據 `.screenshots/consent-overview/round2-desktop.png`（捲至圖片及同意操作區）、`round2-mobile.png`。八項自評：層次—說明標題、圖片、同意操作順序清楚；留白—保留現有區塊間距；字體—保留現有字型後備，圖中文字可開原圖放大；配色—圖片採已核可深色字／青綠／琥珀色，頁面沿用原色；對齊—圖片與內容區等寬；響應式—手機不溢出、比例正確；狀態—同意切換／按鈕停用及鍵盤圖連結已實測；動效—沿用既有按鈕回饋，無新增動畫。第一輪無需追加產品修正，第二輪確認執行副本。
+
+學生／施測者局部QA：避免顯示八情境舊內容，保留既有同意門檻、不改收集資料流程；靜態圖片從Apache送到瀏覽器，無新增服務或費用。選擇保留流程圖＋原圖放大；備援是另做可重排的文字版，但本輪不擴張頁面重製。HTTP頁面／圖片200、未登入遊戲API401、.env403；git diff --check通過。Impeccable自動引擎仍不可用，依已讀脈絡與人工畫面檢查，未宣稱其掃描通過。
+
+本輪僅靜態頁面素材接入，沒有修改圖片內文或研究條件；直接受影響的瀏覽器流程已驗證。先前有效局部程式測試證據保留，但不冒稱全套測試通過。會建立／刪除其他庫的全測仍受指定資料庫限制，未提交／合併／推送或正式發布；本機網址已更新。下一步為使用者重新整理說明頁檢視；正式施測前仍需確認頁面總時長及禮券原文是否符合實際安排。技能：product-owner-teaching、impeccable、emil-design-eng、karpathy-guidelines、test-driven-development、playwright-cli、verification-before-completion。
+
+---
+
+# 本輪狀態：新版六關實驗說明圖（2026-09-28）
+
+使用者提供舊八情境 SDG 說明圖，要求重新製作符合這次實驗的一張圖。本輪用內建 image_gen 產出新版，保存於 `assets/img/game/experiment-overview.png`；完整提示詞在 [圖片生成提示詞](docs/cake-experiment-overview-image-prompt.txt)。原圖及網站引用均保留，本輪是圖片交付，未修改同意書、程式、資料庫或執行副本。
+
+內容依 PRODUCT.md、現有 app.js 開場須知及已核可流程核對：六關調查、六位角色；每關觀看影片 → 閱讀證詞 → 訊問2分30秒 → 分類與推理共4分鐘 → 完成本關；六關後填後測，再看結果與案件解析。分類每則1分、每關6分、總分36分，推理文字評語不計入分類分数；回饋時機採中性描述，不曝光兩組差異或承諾所有人立即看分數。
+
+未沿用旧圖的八情境、八位夥伴、100分鐘與商品卡條件，因這些不能從新版規格確認。文案含持續計時及重新登入接續提醒；圖面已核對繁體字、流程、時間、計分與未揭露案件答案。以學生閱讀與施測者避免錯誤承諾的角度做素材審查，未宣稱已驗證研究同意程序。圖片複製後 SHA256 與生成來源一致。
+
+風格為淺色底、深色字、青綠與琥珀色流程標記、小幅宿舍冰箱場景；採流程圖而非密集段落，方便說明各階段。未新增外部服務依賴。已發現 control/consent.html 仍引用舊 f1.png，且上方還寫90–100分鐘含休息／禮券；本輪依「重製一張」範圍只交付新圖，這些頁面內容與實際施測時長／報酬仍待另行對齊。未提交、推送或部署；保留全部既有修改。技能：product-owner-teaching、brainstorming、imagegen、verification-before-completion。
+
+---
+
+# 本輪狀態：第一關影片已接入本機站（2026-09-28）
+
+使用者把第一關影片放入 media。本輪將 `media/第一關.mov` 接到第一關 `media/intro-L1.mp4`，沿用 idealightsdg_cake 的現有對應（唯讀查詢 ck_levels.level_no=1、video_src 確認），未修改資料庫、程式碼、其他關卡或全遊戲開場 intro-guide。原始 MOV 完整保留。開工分支 fix/xiaomai-ui-followup@8807e0f，保留既有 login.html、HANDOFF 及 .claude 差異。
+
+來源／輸出均為 3840×2160、30 fps、H.264／AAC，瀏覽器讀取長度 76.626009 秒。用現有 FFmpeg 將 MOV 無重編碼封裝成 MP4，faststart 播放索引前置；以 FFmpeg stream hash 比對來源和輸出的影像／音軌 SHA256 均相同，完整解碼 exit 0。比對方法用同檔及舊試播片校準；第一次驗證工具受到 PowerShell 管線中文字元編碼影響，改用 Unicode escape 後完成，不是原片損壞。未裁切、調色、變更字幕或音量，未安裝工具、傳至外部服務或付費。
+
+本機同步位置：`C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site/media/intro-L1.mp4`。替換前確認舊檔與既有 video.mp4 試播來源一致，備份保留於 `media/edit/verify/intro-L1-before.mp4`。工作區與執行副本 SHA256 相同；其他六個 intro 檔案前後指紋一致。HTTP 200、Content-Type video/mp4、支援 Range 請求。
+
+使用者／施測者 QA：Chrome 桌機1280×800與手機375×812實際讀取本機站影片，以原速完整播到片尾，均無影片或 pageerror；音軌已解碼，但未冒稱人工聆聽。播完前「看六人的發言」不可見，結束後出現並可按入 testimony 階段。遊戲 API 全部攔截為合成資料，未寫入學生紀錄、未呼叫 AI；這是素材與播放接入驗收，不是資料庫保存全測。結果與截圖在 `media/edit/verify/browser-results.json`、`desktop-playing.png`、`mobile-playing.png`，詳細方法見 [影片處理紀錄](media/edit/project.md)。
+
+`node --test tests/media.test.mjs`：1通過、0失敗、exit 0，確認試播素材工具不覆蓋既有影片。未改程式行為，沿用上一輪有效局部程式測試證據；全套仍因會建立／刪除其他資料庫而受指定庫限制，未合併／提交／推送。本輪新增本機 `media/intro-L1.mp4`、`media/edit/`，來源 `media/第一關.mov` 仍未追蹤。
+
+已交付教學：系統按照既定檔名取片，放入中文 MOV 不會自動換片；MP4 是網站播放包裝，本輪只換包裝，無重新壓縮。備援是轉成1080p較小檔，本輪選擇保留原4K與約225MB畫質／大小。學生下次進第一關會讀新素材，既有觀看／作答進度不重設；舊回合是否允許重新播放沿用原規則。下一步為使用者從原網址檢視；其餘正式關卡影片仍待提供。技能：product-owner-teaching、video-use、playwright-cli、systematic-debugging、verification-before-completion。
+
+---
+
+# 本輪狀態：登入頁標頭重疊修正（2026-09-28）
+
+使用者提供標頭被灰色橫帶穿過的截圖。定位到 login.html：背景已隱藏，但文字容器仍帶 UIkit 絕對定位 class，造成父層只剩上下 padding、無法容納文字。只移除 `uk-position-center-left`，讓文字自然撐高標頭，並將錯誤 `</br>` 改為 `<br>`；保留文案、配色、裝飾、共用 CSS、登入程式與資料庫。備援方案是固定高度，但不採用，避免手機換行再溢出。原分支 fix/xiaomai-ui-followup@8807e0f，保留上一輪 HANDOFF 未提交內容及 .claude 本機設定。
+
+紅→綠證據：忽略追蹤的 `.screenshots/login-header/check.mjs` 為本輪瀏覽器驗收工具，未增加正式測試套件。先以已知相同／越界矩形校準包含判斷，再讀瀏覽器 getBoundingClientRect：原版桌機與手機標頭高度都只有 32px，文字容器各約 169px／142px，兩者皆越界而 exit 1。修正後兩個尺寸皆符合文字在標頭內、表單位於標頭下方、無橫向捲動、無 pageerror；鍵盤可聚焦登入按鈕。瀏覽器封鎖外部 Google Fonts 及所有 API，未發送學生資料；採既有字體後備顯示。
+
+本機同步：先用 git hash-object 比對執行副本 login.html 與 HEAD blob 一致，備份於 `.screenshots/login-header/login-before.html`，再只同步 login.html 至 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site/login.html`。檔案 SHA256 相同。第二輪直接開原網址 `http://127.0.0.1:18079/login.html`，不攔截 HTML，確認實際站台標頭已修正；未重啟服務、未改 .env、session 或學生資料。
+
+兩輪各桌機 1280×800、手機 375×812 截圖均已讀回自檢；第一輪無需追加修正，第二輪確認實際站台。最終證據：`.screenshots/login-header/round2-desktop.png`、`.screenshots/login-header/round2-mobile.png`。
+
+| 自評 | 第一輪／第二輪 |
+|---|---|
+| 層次 | 標題與登入區分離，主標大於內文，均合格 |
+| 留白 | 標頭由內容撐高，上下留白完整，表單不重疊，均合格 |
+| 字體 | 沿用既有 Work Sans／中文字體後備與字級，文字無截斷，均合格；外部字型未驗證 |
+| 配色 | 原淺灰底、深色字、橘色操作，無新增色，均合格 |
+| 對齊 | 標題置中、登入欄位維持原對齊，均合格 |
+| 響應式 | 手機標題換行正常，沒有橫向捲動，均合格 |
+| 狀態 | 欄位可輸入、鍵盤可聚焦按鈕，沿用既有 required 與錯誤處理，均合格；不冒用學生登入 |
+| 動效 | 保留既有按鈕 hover 回饋，標題保持靜止，無新增動畫／過場，均合格 |
+
+產品理解／QA：學生現在能完整讀到註冊登入指引；施測者不需變更帳號或研究資料。調整只影響瀏覽器排版，不改前端送資料 → PHP 登入 → MySQL 的流程，無新增服務或 AI 費用。從學生閱讀與鍵盤操作、施測者資料完整性角度完成本輪局部驗收。Impeccable 0.1.6 自動引擎因缺少快取写入／安裝權限不可用，已依技能 fallback 讀既有 PRODUCT／DESIGN 及人工畫面檢查，未宣稱自動掃描通過。
+
+局部回歸：使用既有 PLAYWRIGHT_MODULE 與 PHP 8.2 路徑，執行 `node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs`，Node TAP 結果 12 通過、0 失敗、0 跳過、exit 0。git diff --check 通過。未執行會建立／刪除其他庫的全測，既有指定庫限制不變，因此未合併 main、未推送或正式部署；本機試玩站已更新。本輪來源異動為 login.html 與本段 HANDOFF，皆留未提交。下一步為使用者重新整理原登入頁檢視；正式發布前仍須解決既有全測限制。
+
+收尾狀態檢查另發現新出現的未追蹤 `media/第一關.mov`，不是本輪建立，已保留且未讀取／修改／加入版本控制。修正後 HTTP 登入頁 200、未登入遊戲 API 401、.env 403。
+
+技能：product-owner-teaching、systematic-debugging、impeccable、emil-design-eng、karpathy-guidelines、test-driven-development、playwright-cli、verification-before-completion。
+
+---
+
+# 本輪狀態：啟動與系統現況確認（2026-09-28）
+
+使用者要求啟動系統、查 Git／資料庫及整體狀態。既有 `http://127.0.0.1:18079/` 已在運作，無須重新啟動。Apache 2.4.58／PHP 8.2.12 的 DocumentRoot 仍為 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site`，不是 Git 工作目錄；以已知相同／不同檔案校準 SHA256 後，比對 Git 追蹤的 api、assets、control、components、media、入口 HTML、.htaccess 及 video.mp4，全部與執行副本一致。這是本機站，沒有正式部署流程；未設定隨 Git 自動同步副本。
+
+Git：開工時已追蹤檔案沒有未提交差異，只有 `.claude/settings.local.json` 未追蹤。目前 `fix/xiaomai-ui-followup@8807e0f`；本日 `git ls-remote origin` 實查遠端修正分支為 `8807e0f416231565f3394a4a5897872c716017c8`，main 為 `1bda91d3afa13563a9de8053dffcce72d581e86e`，均與本機一致。`git log main..HEAD` 列出 5a64f8c、c4d92f5、8807e0f；修正尚未合併 main。本輪僅新增這段交接，未提交／推送／部署。
+
+資料庫：執行副本 `.env` 與工作區均指向 `127.0.0.1`／`idealightsdg_cake`，沿用 3306。已檢閱並執行既有唯讀 verify-database.php，以 SELECT DATABASE()／伺服器版本確認為 MySQL 8.0.43、指定庫，六關可讀。未新增、重設或修改學生資料，也未新建資料庫。
+
+今日驗證：HTTP 首頁與登入頁 200、未登入 ck_state.php 401、.env 與 seed_cake.sql 403；使用不存在的合成帳號直接呼叫登入，正確回傳學號或姓名錯誤。既有 Chrome live-smoke 腳本確認實際網址的影片播放、無原生控制列及回饋分數／小標，exit 0；遊戲 API 全部攔截為合成資料，不代表真實完整遊戲驗收。另以 Chrome 操作登入：未攔外部資源時等待請求／載入逾時；只阻止外部 Google Fonts 載入後，實際按登入成功送至後端並顯示錯誤帳號提示，無 pageerror。外部字型與測試環境載入限制相關，尚未證實一般瀏覽環境也會發生。未修改畫面。
+
+限制：AI 有真實設定，但本日未呼叫模型；Apache 歷史日誌於 9/26 18:01–18:02 有 Google AI HTTP 429 額度限制，不能宣稱今天 AI 正常。七支 intro 影片經 SHA256 比對仍全等於 video.mp4 試播來源。正式影片、真實 AI 品質／額度及問卷完成回傳仍需後續驗收。沒有執行會建立／刪除其他資料庫的全測，沿用指定庫保護限制；本輪也不是完整資安健檢。下一步可由使用者在原網址登入試用，正式施測前另安排 AI 與完整流程驗收。
+
+教學已交付：瀏覽器 → Apache/PHP → MySQL／AI 資料流；Git 保存程式版本，不備份研究資料；主方案沿用既有已驗證執行環境，備援才調整 XAMPP。從學生角度查入口／播放，從施測者角度確認資料庫、版本及資料保護；沒有新增外部服務或費用。技能：using-superpowers、product-owner-teaching、verification-before-completion、playwright-cli（CLI 未安裝，使用既有 Playwright 程式介面）、systematic-debugging。
+
+---
+
 # 本輪狀態：依明確要求推送目前分支（2026-09-26）
 
 推送結果：首次自動批准審核因目的地所有權未確認而拒絕；使用者隨後明確確認允許上傳至Frankfangcode/idealight_sdg的fix/xiaomai-ui-followup分支。重新推送成功，`git ls-remote`確認遠端提交為`c4d92f572c16805e526be261081bb9982f53aac8`，main仍為`1bda91d3afa13563a9de8053dffcce72d581e86e`。該提交包含影片指南與核對／環境文件，並包含既有畫面修正祖先提交。此後僅補本段推送紀錄；沒有程式變動，沿用上一輪12項局部測試證據。`.claude/`仍為未追蹤的本機設定；未部署網站。

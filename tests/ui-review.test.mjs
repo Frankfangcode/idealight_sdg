@@ -2,30 +2,49 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {openUi,uiState,uiFeedback} from './ui-harness.mjs';
 
+test('new and existing onboarding starts with character cards and reaches the first level without a guide video',async t=>{
+ for(const onboardingStep of [0,1]){
+  const media=[];
+  const {page,requests}=await openUi(t,{state:uiState({onboardingStep}),before:page=>page.on('request',r=>{if(r.url().includes('/media/'))media.push(r.url());})});
+  await page.getByRole('heading',{name:'六個人，六種說法'}).waitFor({timeout:3000});
+  assert.equal(await page.locator('.roster__item').count(),6);
+  assert.equal(await page.locator('video').count(),0);
+  await page.getByRole('button',{name:'調查須知',exact:true}).click();
+  await page.getByRole('heading',{name:'調查須知',exact:true}).waitFor();
+  assert.deepEqual(requests.filter(r=>r.name==='ck_onboarding.php').map(r=>r.body.step),[2]);
+  await page.reload();await page.getByRole('heading',{name:'調查須知',exact:true}).waitFor();
+  await page.getByRole('button',{name:'開始調查',exact:true}).click();
+  await page.locator('video').waitFor();
+  assert.ok((await page.locator('video').getAttribute('src')).endsWith('intro-L1.mp4'));
+  assert.equal(media.some(url=>url.includes('intro-guide')),false);
+  assert.equal(requests.some(r=>r.name==='ck_video.php'&&r.body.levelNo===0),false);
+ }
+});
+
 test('allowed autoplay starts without player controls and unlocks next only after viewing is saved',async t=>{
- const {page,requests}=await openUi(t);
+ const {page,requests}=await openUi(t,{state:uiState({onboardingStep:3})});
  await page.locator('video').waitFor();
- assert.equal(await page.getByRole('button',{name:'誰該負責？'}).isVisible(),false);
+ assert.equal(await page.getByRole('button',{name:'看六人的發言'}).isVisible(),false);
  await page.waitForFunction(()=>document.querySelector('video').currentTime>0,{},{timeout:3000});
  assert.equal(await page.locator('video').evaluate(v=>v.controls),false);
- await page.getByRole('button',{name:'誰該負責？'}).waitFor();
+ await page.getByRole('button',{name:'看六人的發言'}).waitFor();
  assert.ok(requests.some(r=>r.name==='ck_video.php'&&r.body.completed===true));
- await page.getByRole('button',{name:'誰該負責？'}).click();
- await page.getByRole('heading',{name:'六個人，六種說法'}).waitFor();
+ await page.getByRole('button',{name:'看六人的發言'}).click();
+ await page.locator('.tgrid').waitFor();
 });
 
 test('blocked autoplay offers a start action and keeps completion locked until playback finishes',async t=>{
- const {page}=await openUi(t,{before:page=>page.addInitScript(()=>{
+ const {page}=await openUi(t,{state:uiState({onboardingStep:3}),before:page=>page.addInitScript(()=>{
   const play=HTMLMediaElement.prototype.play;let first=true;
   HTMLMediaElement.prototype.play=function(){if(first){first=false;return Promise.reject(new DOMException('Autoplay blocked','NotAllowedError'));}return play.call(this);};
  })});
  const start=page.getByRole('button',{name:'開始播放',exact:true});
  await start.waitFor({timeout:3000});
- assert.equal(await page.getByRole('button',{name:'誰該負責？'}).isVisible(),false);
+ assert.equal(await page.getByRole('button',{name:'看六人的發言'}).isVisible(),false);
  await start.click();
  await page.waitForFunction(()=>document.querySelector('video').currentTime>0);
  assert.equal(await start.isVisible(),false);
- await page.getByRole('button',{name:'誰該負責？'}).waitFor();
+ await page.getByRole('button',{name:'看六人的發言'}).waitFor();
 });
 
 test('failed media can be reloaded and played without exposing controls or skipping the completion gate',async t=>{
@@ -64,13 +83,13 @@ test('control-group completion does not reveal scores or teaching feedback',asyn
 
 test('a failed viewing save can be retried without replaying or unlocking early',async t=>{
  let failed=false;
- const {page}=await openUi(t,{apiHandler:async({route,name,body})=>{
+ const {page}=await openUi(t,{state:uiState({onboardingStep:3}),apiHandler:async({route,name,body})=>{
   if(name==='ck_video.php'&&body.completed&&!failed){failed=true;await route.fulfill({status:503,json:{success:false,message:'暫時無法保存'}});return true;}
  }});
  await page.getByRole('button',{name:'重試保存',exact:true}).waitFor();
- assert.equal(await page.getByRole('button',{name:'誰該負責？'}).isVisible(),false);
+ assert.equal(await page.getByRole('button',{name:'看六人的發言'}).isVisible(),false);
  assert.equal(await page.locator('video').evaluate(v=>v.ended),true);
  await page.getByRole('button',{name:'重試保存',exact:true}).click();
- await page.getByRole('button',{name:'誰該負責？'}).waitFor();
+ await page.getByRole('button',{name:'看六人的發言'}).waitFor();
  assert.equal(await page.locator('video').evaluate(v=>v.ended),true);
 });

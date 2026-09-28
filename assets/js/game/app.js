@@ -607,14 +607,8 @@
   /* == 開場 == */
 
   function viewSetup() {
-    const step = SERVER.onboardingStep || 0;
-    if (step === 0) return `<section class="onboarding stack stack--lg">
-      <h1 class="hero__title">觀看調查說明</h1>
-      <p class="muted">${esc(SCENARIO.title)}</p>
-      <p class="video-status" id="videoStatus" role="status">看完影片後，就能認識這次案件的六位角色。</p>
-      ${videoPlayer('../' + SERVER.guideVideo.src)}
-      <div class="actions"><button class="btn btn--primary btn--lg" data-action="onboardingNext" ${SERVER.guideVideo.completed ? '' : 'hidden'}>誰該負責？</button></div>
-    </section>`;
+    // Legacy step 0 was a placeholder video; both 0 and 1 now show the character cards.
+    const step = Math.max(1, SERVER.onboardingStep || 0);
     if (step === 1) return `<section class="onboarding stack stack--lg">
       <h1 class="hero__title">六個人，六種說法</h1>
       <p class="hero__lead">${esc(SCENARIO.brief.question)}</p>
@@ -1402,7 +1396,7 @@
       case 'start':
         startInvestigation(); break;
       case 'onboardingNext':
-        guard(async()=>{ const r=await CK.onboarding(SERVER.onboardingStep+1);SERVER.onboardingStep=r.step;render(); },'進度保存失敗'); break;
+        guard(async()=>{ const r=await CK.onboarding(Math.max(1,SERVER.onboardingStep)+1);SERVER.onboardingStep=r.step;render(); },'進度保存失敗'); break;
       case 'retryVideo':
         $('#videoPh').hidden=true;$('#introVideo').load();startVideo();break;
       case 'startVideo':

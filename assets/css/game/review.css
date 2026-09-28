@@ -130,6 +130,18 @@ textarea, .bubble, .fbitem, .result-feedback { overflow-wrap: anywhere; }
 .zone[data-zone='reasonable'] { background:#e6eee9; border-color:#568073; }
 .zone[data-zone='flaw'] { background:#f1e7e8; border-color:#a76572; }
 .result-footer { margin: 48px 0; text-align: center; }
+/* Desktop density follows the requested 80% view; narrow screens keep their type size.
+   Compensate viewport heights so the app and full-screen feedback still fill the screen. */
+@media (min-width:1100px) {
+  :root { zoom: .8; }
+  body, .app { min-height: 125vh; }
+  .modal[data-size='full'] { height: calc(125dvh - var(--sp-3) * 2); }
+  .onboarding { margin-top: 0; gap: 20px; }
+  .onboarding .hero__title, .onboarding .hero__lead,
+  .onboarding .roster, .onboarding .actions { margin: 0; }
+  .roster--intro { gap: 20px; }
+  .roster--intro .roster__photo { height: 200px; }
+}
 @media (hover: hover) and (pointer: fine) { .btn:hover:not(:disabled) { opacity: .88; transform: none; } }
 @media (max-width:1080px) { .interro { grid-template-columns: 1fr; } .suspects { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); } .chat__stage { grid-template-columns: 1fr; } .chat__portrait { display:none; } .topbar__spacer { display:none; } .topbar__right { margin-left:auto; } }
 @media (max-width:720px) {

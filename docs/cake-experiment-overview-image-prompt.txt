@@ -1,0 +1,41 @@
+Create a finished high-resolution LANDSCAPE 16:9 Traditional Chinese participant instruction infographic, a replacement for an outdated university experiment instruction image. This is a NEW image, not a screenshot mockup. Target 2560x1440 or higher equivalent. All Chinese must be Traditional Chinese, exceptionally legible and accurately typeset. Crisp professional editorial/instructional design with a warm ivory paper background, dark navy-charcoal text, restrained teal and amber accents. Subtle small atmospheric illustration of a university dormitory common kitchen with a smart fridge locker marked B-9 at the top right only; it must not reveal a suspect or the mystery solution. No robot, no sci-fi brain, no cyber graphics, no food competition. Most area is clean typography and precise flow diagrams. Small black wordmark "idealight" top left. Strong typographic hierarchy, excellent spacing, generous margins. No crowded tiny type; body text should be clearly readable when the whole image is viewed.
+
+CONTENT MUST BE VERBATIM as specified below; do not invent extra information or embellish factual claims. These facts describe a six-level critical-thinking experiment. Participants work with six AI characters, not eight human partners. Feedback timing differs, so do not say everyone receives immediate feedback, do not label experimental/control groups, do not expose hidden conditions. Do not mention total experiment duration, breaks, gift cards or payment.
+
+Top main title, large, on two balanced lines if needed:
+"消失的月蝕巧克力莓果千層蛋糕"
+Subtitle:
+"六關批判思考調查｜實驗流程說明"
+
+Brief welcome under the title, two lines:
+"你將擔任調查者，透過六個關卡，釐清蛋糕消失的經過。"
+"觀看劇情、閱讀六位角色的證詞、向 AI 角色提問，再根據線索分類證詞並說明推理。"
+
+SECTION ONE label "整體流程"
+A horizontal connected flow, four nicely spaced stages, with simple relevant line icons (play/book, magnifier, survey, report):
+"開場與調查須知" → "完成六關調查" → "填寫後測問卷" → "查看結果與案件解析"
+Under the first stage small supporting text: "觀看說明・認識六位角色"
+
+SECTION TWO label "每一關怎麼進行"
+A clear horizontal connected sequence of FIVE steps, no oversized cards, use numbered points and fine connectors with short text:
+1 "觀看劇情影片" and supporting "看完影片再前進"
+2 "閱讀六人證詞" and supporting "掌握本關線索"
+3 "訊問 AI 角色" and prominent timing "2 分 30 秒" and supporting "可自由輸入問題"
+4 "分類證詞與撰寫理由" and prominent timing "共 4 分鐘" and supporting "分類、選人並說明依據"
+5 "完成本關" and supporting "依畫面提示繼續"
+Keep timing labels attached to only stages 3 and 4. Step 4 may be slightly wider for its longer label.
+
+BOTTOM SECTION divided into two clearly separated readable text blocks on the same plain background:
+Left heading "作答提醒"
+Text lines exactly:
+"請根據線索作答，清楚說明你的判斷依據。"
+"等待 AI 回答、離開或重整頁面，倒數仍會繼續。"
+"時間到會保存當下作答；重新登入可接續進度。"
+
+Right heading "計分與回饋"
+Text lines exactly:
+"每關 6 則證詞，分類正確每則得 1 分。"
+"六關分類總分 36 分；推理理由另有評語，不計入分類分數。"
+"回饋請依畫面提示查看。"
+
+Make a beautifully polished educational infographic with the exact content, large readable Chinese sans-serif typography, careful alignment and clear reading order. No watermark. No fake UI controls. No extraneous footer, credits, dates, URLs or invented labels.
