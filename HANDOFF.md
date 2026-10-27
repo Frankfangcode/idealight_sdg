@@ -1,4 +1,12 @@
-# 本輪狀態：替換開頭實驗流程圖（2026-10-28）
+# 本輪狀態：六人發言卡片固定位置與雙面尺寸（2026-10-28）
+
+使用者指出翻面縮短卡片、下方補位造成混亂，明確要求位置與大小不隨翻面改變。移除 app.js 的 masonry 排版及 ResizeObserver；改為三欄兩列的普通等高 grid，手機保持單欄原始順序。每張卡片同時保留正反面於同一格，透過 visibility 與 aria-hidden 切換可見面，兩面共同撐出尺寸，長證詞不截斷。按鈕以 aria-pressed 表示說法面狀態，已讀與原計時資料流程不變。取消 hover 上移，避免卡片看似換位；未新增翻轉動畫。game.html 為 JS／CSS 加版本參數避免舊快取。
+
+產品說明：雙面共用外框猶如實體卡片，保留完整照片及證詞；比寫死像素高度更適合長文與手機，但短證詞背面會留白。無新套件、費用、資料庫或個資變更。依使用者先前要求未執行測試、截圖或瀏覽器驗收，只有原始碼差異檢閱，尚無 Safari 實際驗證。沿用目前分支保存，不合併 main 或部署。套用 product-owner-teaching、systematic-debugging、impeccable、emil-design-eng、review-animations；動效檢閱為取消位移、不新增高度或過場動畫。前輪圖片替換已推送 ec9d6ab。
+
+---
+
+# 前輪狀態：替換開頭實驗流程圖（2026-10-28）
 
 以使用者提供的 Downloads/picture 2.png 原檔替換 assets/img/game/experiment-timeline.png，圖片描述同步為故事各30分鐘、休息3分鐘。consent.html 的圖片與原圖連結加入版本參數，避免沿用舊圖片快取。維持原有等比例顯示，不修改實際倒數或前測隱藏設定。依使用者要求未跑測試與畫面驗收；本輪為圖片與替代文字替換，沒有功能驗證證據。套用 product-owner-teaching；選擇保留既有資源位置加版本參數，便於原連結沿用，替代方式為另建檔名。前次 checkpoint 873d450 已成功推送 origin/fix/xiaomai-ui-followup。本輪沿用分支版本保存，不合併 main 或部署。
 

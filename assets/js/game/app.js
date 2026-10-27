@@ -592,34 +592,7 @@
 
   /* ----------------------------------------------------------- 畫面渲染 */
 
-  // Keep each character in its own column while photo and text cards have different heights.
-  // DOM order stays 1–6 for keyboard reading and the single-column mobile layout.
-  function layoutTestimonyCards() {
-    const grid = $('.tgrid');
-    if (!grid) return;
-    const styles = getComputedStyle(grid);
-    const columns = Number(styles.getPropertyValue('--testimony-columns')) || 1;
-    const gap = parseFloat(styles.columnGap) || 16;
-    const cards = [...grid.children];
-    cards.forEach((card, index) => {
-      const column = String(index % columns + 1);
-      if (card.style.gridColumn !== column) card.style.gridColumn = column;
-    });
-    const nextRow = Array(columns).fill(1);
-    cards.forEach((card, index) => {
-      const column = index % columns;
-      const height = Math.ceil(card.offsetHeight + gap);
-      const start = String(nextRow[column]);
-      const span = `span ${height}`;
-      if (card.style.gridRowStart !== start) card.style.gridRowStart = start;
-      if (card.style.gridRowEnd !== span) card.style.gridRowEnd = span;
-      nextRow[column] += height;
-    });
-  }
-  const testimonyLayoutObserver = new ResizeObserver(layoutTestimonyCards);
-
   function render() {
-    testimonyLayoutObserver.disconnect();
     renderTopbar();
     renderTabbar();
     setScene();
@@ -640,13 +613,6 @@
       main.className = 'main main--wide';
       main.innerHTML = viewPhase();
       if (phase() === 'feedback') openFeedback();
-    }
-
-    const testimonyGrid = $('.tgrid');
-    if (testimonyGrid) {
-      layoutTestimonyCards();
-      testimonyLayoutObserver.observe(testimonyGrid);
-      [...testimonyGrid.children].forEach(card => testimonyLayoutObserver.observe(card));
     }
 
     stopTicker();
@@ -838,23 +804,20 @@
       const showText = isRead && !(L.collapsed && L.collapsed[key]);
       return `<button class="tcard tcard--interactive" data-action="read" data-key="${key}"
           data-read="${isRead}" data-placeholder="${showText && !!t.placeholder}"
-          aria-expanded="${showText}">
-          ${
-            showText
-              ? ''
-              : `<span class="tcard__photo" ${SERVER.mode === 'stories' && !c.image ? '' : `data-key="${key}"`}${portraitStyle(key)}></span>
-                 <span class="tcard__tag">SUBJ—0${key}</span>`
-          }
-          <span class="tcard__head">${avatar(key)}${who(key)}</span>
-          ${
-            showText
-              ? `<span class="tcard__text">${esc(t.text)}</span>
-                 <span class="tcard__cta tcard__cta--back">↩ 點一下回到角色介紹</span>`
-              : `<span class="tcard__closed">
-                   <span class="tcard__trait">${esc(c.trait)}</span>
-                   <span class="tcard__cta">${isRead ? '再點一次看他的說法 →' : '點擊查看他的說法 →'}</span>
-                 </span>`
-          }
+          aria-pressed="${showText}">
+          <span class="tcard__face tcard__face--front" aria-hidden="${showText}">
+            <span class="tcard__photo" ${SERVER.mode === 'stories' && !c.image ? '' : `data-key="${key}"`}${portraitStyle(key)}></span>
+            <span class="tcard__head">${who(key)}</span>
+            <span class="tcard__closed">
+              <span class="tcard__trait">${esc(c.trait)}</span>
+              <span class="tcard__cta">${isRead ? '再點一次看他的說法 →' : '點擊查看他的說法 →'}</span>
+            </span>
+          </span>
+          <span class="tcard__face tcard__face--back" aria-hidden="${!showText}">
+            <span class="tcard__head">${avatar(key)}${who(key)}</span>
+            <span class="tcard__text">${esc(t.text)}</span>
+            <span class="tcard__cta tcard__cta--back">↩ 點一下回到角色介紹</span>
+          </span>
         </button>`;
     }).join('');
 

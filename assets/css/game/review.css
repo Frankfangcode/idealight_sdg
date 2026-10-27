@@ -101,7 +101,18 @@ body { background: var(--color-canvas); color: var(--color-text); }
 .tgrid .tcard__trait:empty { display: none; }
 .tcard__photo::after { background: none; }
 .tcard[aria-expanded='false'] .tcard__cta { color: #8b4b00; border-top-color: var(--color-border); }
-.tgrid { --testimony-columns: 3; grid-template-columns: repeat(3,minmax(0,1fr)); grid-auto-rows: 1px; row-gap: 0; align-items: start; }
+.tgrid { grid-template-columns: repeat(3,minmax(0,1fr)); grid-auto-rows: 1fr; gap: var(--sp-4); align-items: stretch; }
+/* Both faces occupy the same cell, so flipping never changes the card's footprint. */
+.tgrid .tcard { display: grid; min-width: 0; gap: 0; background: #fafaf8; color: var(--color-text); border-color: var(--color-border); }
+.tgrid .tcard--interactive:hover { transform: none; }
+.tcard__face { grid-area: 1 / 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.tcard__face[aria-hidden='true'] { visibility: hidden; pointer-events: none; }
+.tcard__face--front .tcard__closed { flex: 1; }
+.tcard__face--front .who__name { font-size: var(--fs-xl); letter-spacing: 0.08em; }
+.tcard__face--front .who__role, .tcard__face--front .tcard__trait { color: var(--color-text-muted); }
+.tcard__face--front .tcard__cta { color: #8b4b00; padding-top: var(--sp-3); border-top: 1px solid var(--color-border); }
+.tcard__face--back .tcard__head { padding-right: var(--sp-6); }
+.tcard__face .tcard__text, .tcard__face .who { overflow-wrap: anywhere; }
 .tray__items { grid-template-columns: repeat(3,minmax(0,1fr)); }
 .tray__head { flex-wrap: wrap; }
 .tray__head [data-action='scrollReason'] { display: none; }
@@ -184,7 +195,6 @@ textarea, .bubble, .fbitem, .result-feedback { overflow-wrap: anywhere; }
   .chat__row .input { min-width:0; flex-basis:100%; }
   .chat__row .btn { margin-left:auto; }
   .combined .rank, .tray__items, .tgrid { grid-template-columns:1fr; }
-  .tgrid { --testimony-columns: 1; }
   .rankitem__row { gap:8px; }
   .rankitem .pickbtn { flex-basis:100%; }
   .recallbtn { margin-left:auto; }
