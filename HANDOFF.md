@@ -1,4 +1,10 @@
-# 本輪狀態：下一場新學生只分實驗組、保存 Git checkpoint（2026-10-28）
+# 本輪狀態：替換開頭實驗流程圖（2026-10-28）
+
+以使用者提供的 Downloads/picture 2.png 原檔替換 assets/img/game/experiment-timeline.png，圖片描述同步為故事各30分鐘、休息3分鐘。consent.html 的圖片與原圖連結加入版本參數，避免沿用舊圖片快取。維持原有等比例顯示，不修改實際倒數或前測隱藏設定。依使用者要求未跑測試與畫面驗收；本輪為圖片與替代文字替換，沒有功能驗證證據。套用 product-owner-teaching；選擇保留既有資源位置加版本參數，便於原連結沿用，替代方式為另建檔名。前次 checkpoint 873d450 已成功推送 origin/fix/xiaomai-ui-followup。本輪沿用分支版本保存，不合併 main 或部署。
+
+---
+
+# 前輪狀態：下一場新學生只分實驗組、保存 Git checkpoint（2026-10-28）
 
 使用者明確要求本輪不跑測試、先推上 Git 記錄版本；已確認只調整新學生，保留既有分組及作答。api/src/stories.php 新增 STORY_EXPERIMENT_ONLY=1 時新分派採 slot 2／3，代碼2-1／2-2，維持故事順序交替。既有 study／legacy run 的提早返回保留，不做資料庫遷移或批次更改學生。新增本機 .env 設定及 .env.example 示範，設定需手動關閉，沒有日期排程。保留所有既有未提交工作。
 
