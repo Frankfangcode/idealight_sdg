@@ -14,6 +14,8 @@ require_once __DIR__ . '/../src/api.php';
 require_once __DIR__ . '/../src/review.php';
 
 $stuId = ck_require_stu_id();
+require_once __DIR__.'/../src/story_game.php';
+if(story_installed() && story_study($stuId))ck_json(story_state($stuId));
 $run   = ck_run($stuId);
 
 $stmt = db()->prepare('SELECT level_no, phase FROM ck_progress WHERE stu_id = ?');

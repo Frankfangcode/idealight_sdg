@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../src/scenario_repo.php';
+require_once __DIR__ . '/../src/stories.php';
 $pdo = db();
 
 header('Content-Type: application/json');
@@ -23,7 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $student['current_scenario'] = $progress->fetchColumn() ?: 1;
                 
                 session_regenerate_id(true);
-                $run = ck_run($student['stu_id']);
+                $study = story_installed() ? story_study($student['stu_id']) : null;
+                if(!$study && story_enabled())$study=story_enroll($student['stu_id']);
+                $run = $study ? null : ck_run($student['stu_id']);
                 $_SESSION['stu_id'] = $student['stu_id'];
                 $_SESSION['stu_name'] = $student['name'];
 
@@ -31,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $current_scenario = isset($student['current_scenario']) ? intval($student['current_scenario']) : 1;
 
                 // 回傳本次回合的實際組別；首次分派前讀出的 student 可能仍為 NULL。
-                $group = $run['cond'] === 'control' ? '1' : '2';
+                $group = $study ? $study['code'] : ($run['cond'] === 'control' ? '1' : '2');
 
                 echo json_encode([
                     'success' => true,

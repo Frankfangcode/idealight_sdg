@@ -56,13 +56,17 @@ function ck_openai_key(): string
 // 走 OpenAI 相容的 /chat/completions 格式，供應商由 .env 決定，程式不綁定：
 //   LLM_BASE_URL   預設 Google AI Studio（Gemini API）的 OpenAI 相容端點
 //   LLM_API_KEY    該供應商的金鑰（Google AI Studio 的金鑰以 AIza 開頭）
-//   LLM_MODEL      預設 gemma-4-26b-a4b-it
+//   LLM_MODEL      預設 gemini-3.5-flash-lite
 //   LLM_REASONING_EFFORT  預設 minimal；填 omit 代表不送這個參數（給不支援的供應商用）
 //
 // 這兩個預設值是 2026-09 實測出來的，不要憑感覺改：
 //   - gemma-4-31b-it 首字要 18 秒左右，5 次裡還會有 1 次 HTTP 500；
 //     gemma-4-26b-a4b-it 首字約 1.1 秒、總共約 1.3 秒。訊問只有 150 秒且等待不暫停計時，
 //     31b 等於讓受試者一關只問得到七八句。
+//   - 2026-10-14 改預設為 gemini-3.5-flash-lite：gemma-4-26b-a4b-it 單次呼叫 20 次裡有 7 次
+//     HTTP 500（Gemma 只有免費端點，不穩），重試三次仍會讓角色連續回備援台詞。
+//     3.5-flash-lite 首字約 0.6 秒、總共約 0.9 秒，但它是付費模型：金鑰必須屬於有綁帳單的專案，
+//     免費額度的金鑰連問幾句就會 HTTP 429（quota exceeded）。
 //   - Gemma 4 預設會先思考再回答，而且思考過程直接夾在回答裡（<thought>…</thought>），
 //     不關掉的話會整段顯示在對話泡泡上，回一句「你好」也要 5～27 秒。
 //     Google 的相容層只接受 reasoning_effort=minimal，none／low 都會回 400。
@@ -90,7 +94,7 @@ function ck_llm_key(): string
 /** 模型名稱會隨每句回答寫進 ck_chat_messages.model，日後可追溯。 */
 function ck_llm_model(): string
 {
-    return ck_env('LLM_MODEL', 'gemma-4-26b-a4b-it');
+    return ck_env('LLM_MODEL', 'gemini-3.5-flash-lite');
 }
 
 /** 組請求本體。 */
@@ -253,7 +257,8 @@ function ck_llm_chat_stream_once(array $messages, callable $onDelta, int $maxTok
             'Content-Type: application/json',
             'Authorization: Bearer ' . ck_llm_key(),
         ],
-        CURLOPT_POSTFIELDS => ck_llm_body($messages, $temperature, ['max_tokens' => $maxTokens, 'stream' => true]),
+        // OpenAI 的 gpt-5 系列不收 max_tokens（回 400），Google 的相容層兩個名稱都收
+        CURLOPT_POSTFIELDS => ck_llm_body($messages, $temperature, ['max_completion_tokens' => $maxTokens, 'stream' => true]),
         // SSE 的一個事件可能被切在兩個 chunk 之間，所以先進 buffer 再按行切
         CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$buffer, &$raw, $feed): int {
             $buffer .= $chunk;

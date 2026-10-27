@@ -1,6 +1,12 @@
 <?php
 require_once __DIR__.'/../src/api.php';require_once __DIR__.'/../src/review.php';
-$stu=ck_require_stu_id();ck_run($stu);
+$stu=ck_require_stu_id();
+require_once __DIR__.'/../src/story_game.php';
+if(story_installed()&&story_study($stu)){
+    try {ck_json(story_results($stu));}
+    catch(StoryError $e){ck_fail($e->getMessage(),$e->getCode());}
+}
+ck_run($stu);
 if(!ck_post_completed($stu)) ck_fail('請先完成六關調查與後測問卷，再查看調查成果。',409);
 $q=db()->prepare('SELECT l.level_no AS no,l.name,COALESCE(SUM(e.is_correct),0) AS score FROM ck_levels l LEFT JOIN ck_evidence e ON e.level_no=l.level_no AND e.stu_id=? GROUP BY l.level_no,l.name ORDER BY l.level_no');$q->execute([$stu]);
 $score=ck_score($stu);

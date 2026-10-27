@@ -24,12 +24,18 @@ let SHOW_OWN_CLASSIFICATION = false;
 let SERVER = { hasAiFeedback: true, stuId: '', levelCount: 6 };
 
 const CK = (() => {
+  function requestFor(path,body) {
+    if(SERVER.mode!=='stories'||path==='ck_state.php')return {url:`${API}/${path}`,body};
+    const action=path.split('?')[0].replace(/^ck_/,'').replace(/\.php$/,'');
+    return {url:`${API}/story.php?action=${encodeURIComponent(action)}`,body:body===undefined?undefined:{runId:SERVER.runId,...body}};
+  }
   async function call(path, body) {
-    const res = await fetch(`${API}/${path}`, {
+    const request=requestFor(path,body);
+    const res = await fetch(request.url, {
       method: body === undefined ? 'GET' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: request.body === undefined ? undefined : JSON.stringify(request.body),
     });
 
     // 401 代表 session 過期或未登入。停在這裡比讓畫面靜默壞掉好。
@@ -68,11 +74,13 @@ const CK = (() => {
     SHOW_OWN_CLASSIFICATION = !!s.config.SHOW_OWN_CLASSIFICATION;
 
     SERVER = {
+      mode: s.mode,runId:s.runId,story:s.story,nextStory:s.nextStory,studyCompleted:s.studyCompleted,
       stuId: s.stuId,
       hasAiFeedback: !!s.hasAiFeedback,
       levelCount: s.levelCount,
       flowVersion: s.flowVersion || 1,
       onboardingStep: s.onboardingStep,
+      onboardingRemaining: s.onboardingRemaining,
       guideVideo: s.guideVideo,
       videoProgress: s.videoProgress,
       postCompleted: s.postCompleted,
@@ -101,6 +109,7 @@ const CK = (() => {
         name: c.name,
         role: c.role,
         trait: c.trait,
+        image: c.image,
       })),
       levels,
       truth: null, // 完成六關後由 loadTruth() 取回
@@ -123,7 +132,7 @@ const CK = (() => {
 
     video: (levelNo, position, duration, completed=false) => call('ck_video.php',{levelNo,position,duration,completed}),
     onboarding: (step) => call('ck_onboarding.php',{step}),
-    results: () => call('ck_results.php'),
+    async results() {const result=await call('ck_results.php');if(result.mode==='stories')SERVER.mode='stories';return result;},
     advance: (levelNo, phase) => call('ck_advance.php', { levelNo, phase }),
     nextLevel: (levelNo) => call('ck_advance.php', { levelNo, nextLevel: true }),
 
@@ -134,11 +143,12 @@ const CK = (() => {
      * 回傳最後的 done 事件（完整回答與伺服器端的剩餘秒數）。
      */
     async chat(levelNo, charKey, message, onDelta) {
-      const res = await fetch(`${API}/ck_chat.php`, {
+      const request=requestFor('ck_chat.php',{levelNo,charKey,message});
+      const res = await fetch(request.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ levelNo, charKey, message }),
+        body: JSON.stringify(request.body),
       });
 
       if (res.status === 401) {
@@ -200,7 +210,14 @@ const CK = (() => {
     submitJudgment: (levelNo, pickChar, reason, timedOut = false) =>
       call('ck_judgment.php', { levelNo, pickChar, reason, timedOut }),
 
-    feedback: (levelNo) => call('ck_feedback.php', { levelNo }),
+    feedback: (levelNo,runId=SERVER.runId) => call('ck_feedback.php', { levelNo,...(runId?{runId}:{}) }),
+
+    nextStory: () => call('ck_nextStory.php',{}),
+    release: () => call('ck_release.php',{}),
+    draftOnExit(body) {
+      const r=requestFor('ck_draft.php',body);
+      return fetch(r.url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',keepalive:true,body:JSON.stringify(r.body)});
+    },
 
     async loadTruth() {
       const d = await call('ck_truth.php');
@@ -211,5 +228,6 @@ const CK = (() => {
 
     survey: (kind) => call(`ck_survey.php?kind=${encodeURIComponent(kind)}`),
     completeSurvey: (kind) => call('ck_survey.php', { kind, action: 'complete' }),
+    skipSurvey: (kind) => call('ck_survey.php', { kind, action: 'skip' }),
   };
 })();

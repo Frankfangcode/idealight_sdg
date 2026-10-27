@@ -15,7 +15,9 @@ require_once __DIR__ . '/../src/api.php';
 require_once __DIR__ . '/../src/config.php';
 
 $stuId = ck_require_stu_id();
-ck_run($stuId);
+require_once __DIR__.'/../src/story_game.php';
+$study=story_installed()?story_study($stuId):null;
+if(!$study)ck_run($stuId);
 
 $in   = ck_input();
 $kind = (string)($in['kind'] ?? $_GET['kind'] ?? '');
@@ -25,8 +27,19 @@ if ($kind !== 'pre' && $kind !== 'post') {
 
 $pdo = db();
 if ($kind === 'post') {
-    $q=$pdo->prepare('SELECT finished_at FROM ck_runs WHERE stu_id=?');$q->execute([$stuId]);
-    if (!$q->fetchColumn()) ck_fail('請先完成六關調查',409);
+    if($study){
+        if($study['completed_at']===null||count(array_filter(story_runs($stuId),fn($r)=>$r['finished_at']!==null))!==2)ck_fail('請先完成兩個故事',409);
+    }else{
+        $q=$pdo->prepare('SELECT finished_at FROM ck_runs WHERE stu_id=?');$q->execute([$stuId]);
+        if (!$q->fetchColumn()) ck_fail('請先完成六關調查',409);
+    }
+}
+
+// ---- 已在別處做過前測：只記一筆略過事件，不標記完成，事後仍分得出來 ----
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($in['action'] ?? '') === 'skip') {
+    if ($kind !== 'pre') ck_fail('只有前測可以略過', 409);
+    ck_log($stuId, null, 'survey', 'skip', ['kind' => $kind, 'reason' => 'already_taken']);
+    ck_json(['success' => true, 'kind' => $kind, 'skipped' => true]);
 }
 
 // ---- 回報完成 ----
@@ -38,6 +51,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($in['action'] ?? '') === '
         'INSERT INTO ck_surveys (stu_id, kind, completed_at) VALUES (?, ?, NOW())
          ON DUPLICATE KEY UPDATE completed_at = COALESCE(completed_at,NOW())'
     )->execute([$stuId, $kind]);
+
+    if($study&&$kind==='post'){
+        $run=story_run($stuId);
+        story_action($stuId,'release',['runId'=>(int)$run['id']]);
+    }
 
     ck_log($stuId, null, 'survey', 'complete', ['kind' => $kind]);
     ck_json(['success' => true, 'kind' => $kind, 'completed' => true]);

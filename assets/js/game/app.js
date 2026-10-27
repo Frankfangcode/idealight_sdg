@@ -32,7 +32,7 @@
   let TAB_PHASES = ['video', 'testimony', 'interrogation', 'evidence'];
   /* 啟動時才知道有哪些角色，所以不能在載入階段就從 SCENARIO 取 */
   let KEYS = [];
-  const STORAGE_KEY = 'ck-ui-state-v2';
+  let STORAGE_KEY = 'ck-ui-state-v2';
   let draftTimer=null;
   let draftQueue=Promise.resolve();
 
@@ -309,12 +309,20 @@
     setTimeout(() => el.remove(), 3200);
   }
 
+  function portraitStyle(key) {
+    const image = charOf(key).image;
+    return SERVER.mode === 'stories' && image
+      ? ` style="background-image:url(${esc(JSON.stringify('../' + image))});background-position:50% 20%"`
+      : '';
+  }
+
   /* 頭像是人物照（theme-noir.css 依 data-key 套臉部特寫），裡面的編號只在
      主題檔沒載入時當後備顯示。speaking：角色正在回答，外圈會脈動。 */
   function avatar(key, size, speaking) {
+    if(SERVER.mode==='stories'&&!charOf(key).image)return `<span class="avatar avatar--name${size?' avatar--'+size:''}" aria-hidden="true">${esc(charOf(key).name.slice(0,1))}</span>`;
     return `<span class="avatar${size ? ' avatar--' + size : ''}" data-key="${key}"${
       speaking ? ' data-speaking="true"' : ''
-    } aria-hidden="true">${key}</span>`;
+    }${portraitStyle(key)} aria-hidden="true">${key}</span>`;
   }
 
   /* ---- 場景背景 ----
@@ -358,6 +366,8 @@
   /* ------------------------------------------------------------- 計時器 */
 
   function phaseDuration(p) {
+    if (p === 'feedback' && (SERVER.mode !== 'stories' || !hasAiFeedback() || feedbackData?.readingRemaining == null)) return 0;
+    if (p === 'video' && !lv().videoWatched) return 0;
     return PHASE_SECONDS[p] || 0;
   }
 
@@ -395,6 +405,8 @@
   }
 
   function paintTimer() {
+    const feedbackClock=$('#feedbackClock');
+    if(feedbackClock)feedbackClock.textContent=mmss(lv().timeLeft.feedback??30);
     const node = $('#timer');
     if (!node) return;
     const p = livePhase();
@@ -411,6 +423,17 @@
      否則受試者一逾時就整關掉資料。 */
   async function onTimeout(p) {
     const L = lv();
+    if (p === 'feedback') {
+      await nextLevel();
+      if (livePhase() === 'feedback') { L.timedOut[p]=false;startTicker(); }
+      return;
+    }
+    if (p === 'video' || p === 'testimony') {
+      await goPhase(p === 'video' ? 'testimony' : 'interrogation');
+      // Keep trying after a transient connection failure; do not strand an expired page.
+      if (livePhase() === p) { L.timedOut[p] = false; startTicker(); }
+      return;
+    }
     if (p === 'interrogation') {
       /* 訊問沒有「問完了」的出口，時間到才自動進證據牆。
          期限前送出的問題要讓它答完：還在等回答就先鎖輸入框，
@@ -481,7 +504,7 @@
       await syncPastDrafts();
       const r = await CK.nextLevel(level().no);
       if (r.finished) {
-        location.href='survey.html?kind=post';
+        location.href=SERVER.mode==='stories'?'game.html':'survey.html?kind=post';
         return;
       } else {
         await CK.refresh();
@@ -501,7 +524,7 @@
 
   function renderTopbar() {
     $('#brandTitle').textContent = SCENARIO.title;
-    const allDone = state.screen === 'truth' || state.screen === 'debrief';
+    const allDone = ['truth','debrief','storyBreak'].includes(state.screen);
     const dots = SCENARIO.levels
       .map((L, i) => {
         const st = allDone ? 'done' : i < state.levelIndex ? 'done' : i === state.levelIndex ? 'current' : 'todo';
@@ -512,6 +535,11 @@
     $('#levels').innerHTML = state.screen === 'setup' ? '' : dots;
 
     const right = $('#topbarRight');
+    if (state.screen === 'setup' && SERVER.mode === 'stories' && SERVER.onboardingStep < 2) {
+      const left = introEndsAt === null ? (SERVER.onboardingRemaining ?? 25) : Math.max(0, Math.ceil((introEndsAt - Date.now()) / 1000));
+      right.innerHTML = `<span class="timer" role="timer" aria-label="閱讀時間" data-label="閱讀時間" data-state="ok"><span class="timer__text" id="introClock">${mmss(left)}</span></span>`;
+      return;
+    }
     if (state.screen !== 'play') {
       right.innerHTML = '';
       return;
@@ -524,7 +552,7 @@
     const review = isReview();
     const left = lv().timeLeft[live] ?? total;
     const showTimer = total > 0 && !lv().timedOut[live];
-    const timerLabel = review ? `${PHASE_META[live].label}剩餘` : '剩餘時間';
+    const timerLabel = review ? `${PHASE_META[live].label}剩餘` : live === 'video' ? '進入六人發言' : live === 'testimony' ? '閱讀時間' : '剩餘時間';
     right.innerHTML = `
       <span class="score-progress">${hasAiFeedback()?`分類得分 ${SERVER.totalScore ?? 0}/36`:`已完成 ${state.levelIndex}/6 關`}</span>
       ${review ? '<span class="badge">回顧中</span>' : ''}
@@ -564,13 +592,42 @@
 
   /* ----------------------------------------------------------- 畫面渲染 */
 
+  // Keep each character in its own column while photo and text cards have different heights.
+  // DOM order stays 1–6 for keyboard reading and the single-column mobile layout.
+  function layoutTestimonyCards() {
+    const grid = $('.tgrid');
+    if (!grid) return;
+    const styles = getComputedStyle(grid);
+    const columns = Number(styles.getPropertyValue('--testimony-columns')) || 1;
+    const gap = parseFloat(styles.columnGap) || 16;
+    const cards = [...grid.children];
+    cards.forEach((card, index) => {
+      const column = String(index % columns + 1);
+      if (card.style.gridColumn !== column) card.style.gridColumn = column;
+    });
+    const nextRow = Array(columns).fill(1);
+    cards.forEach((card, index) => {
+      const column = index % columns;
+      const height = Math.ceil(card.offsetHeight + gap);
+      const start = String(nextRow[column]);
+      const span = `span ${height}`;
+      if (card.style.gridRowStart !== start) card.style.gridRowStart = start;
+      if (card.style.gridRowEnd !== span) card.style.gridRowEnd = span;
+      nextRow[column] += height;
+    });
+  }
+  const testimonyLayoutObserver = new ResizeObserver(layoutTestimonyCards);
+
   function render() {
+    testimonyLayoutObserver.disconnect();
     renderTopbar();
     renderTabbar();
     setScene();
     const main = $('#main');
 
-    if (state.screen === 'setup') {
+    if (state.screen === 'storyBreak') {
+      main.className='main';main.innerHTML=viewStoryBreak();
+    } else if (state.screen === 'setup') {
       main.className = 'main';
       main.innerHTML = viewSetup();
     } else if (state.screen === 'truth') {
@@ -583,6 +640,13 @@
       main.className = 'main main--wide';
       main.innerHTML = viewPhase();
       if (phase() === 'feedback') openFeedback();
+    }
+
+    const testimonyGrid = $('.tgrid');
+    if (testimonyGrid) {
+      layoutTestimonyCards();
+      testimonyLayoutObserver.observe(testimonyGrid);
+      [...testimonyGrid.children].forEach(card => testimonyLayoutObserver.observe(card));
     }
 
     stopTicker();
@@ -606,31 +670,72 @@
 
   /* == 開場 == */
 
+  /* 兩個故事之間強制休息。伺服器同樣會擋，這裡只負責倒數與按鈕狀態。 */
+  let breakEndsAt=null,breakTimer=null;
+  function breakLeft() {return breakEndsAt===null?0:Math.max(0,Math.ceil((breakEndsAt-Date.now())/1000));}
+  function tickBreak() {
+    const left=breakLeft(),clock=$('#breakClock'),btn=$('[data-action="nextStory"]');
+    if(clock)clock.textContent=mmss(left);
+    if(btn){btn.disabled=left>0;btn.textContent=left>0?'休息結束後才能開始':'開始下一個故事';}
+    if(left===0&&breakTimer){clearInterval(breakTimer);breakTimer=null;const note=$('#breakNote');if(note)note.textContent='休息時間結束，可以開始下一個故事。';}
+  }
+  function viewStoryBreak() {
+    const next=SERVER.nextStory;
+    if(next&&breakEndsAt===null)breakEndsAt=Date.now()+(next.breakRemaining||0)*1000;
+    if(next&&breakLeft()>0&&!breakTimer)breakTimer=setInterval(tickBreak,1000);
+    const left=breakLeft();
+    return `<section class="onboarding stack stack--lg story-break">
+      <h1 class="hero__title">${next?'第一個故事已完成':'兩個故事已完成'}</h1>
+      <p class="hero__lead">${next?`《${esc(SCENARIO.title)}》的作答已保存。`:'兩份故事的作答都已保存，謝謝你完成調查。'}</p>
+      ${next?`<div class="story-next"><h2>接下來：${esc(next.title)}</h2><p>準備好後，按下方按鈕認識新角色，再開始下一個故事。前一個故事的答案會保留。</p></div>
+        <div class="story-rest" role="timer" aria-live="off"><span class="story-rest__label">休息時間</span><span class="story-rest__clock mono" id="breakClock">${mmss(left)}</span></div>
+        <p class="muted" id="breakNote" role="status">${left>0?'請先休息三分鐘，倒數結束後才能開始下一個故事。':'休息時間結束，可以開始下一個故事。'}</p>
+        <div class="actions"><button class="btn btn--primary btn--lg" data-action="nextStory" ${left>0?'disabled':''}>${left>0?'休息結束後才能開始':'開始下一個故事'}</button></div>`:
+        `<p>請先依老師的指示完成問卷。完成後，再查看兩個故事各自的成果與解析。</p><div class="actions"><button class="btn btn--primary btn--lg" data-action="releaseResults">我已完成老師安排的問卷，查看成果</button></div>`}
+    </section>`;
+  }
+
+  let introEndsAt=null,introTimer=null;
+  function tickIntro(){
+    if(state.screen!=='setup'||SERVER.onboardingStep>=2){clearInterval(introTimer);introTimer=null;return;}
+    const left=Math.max(0,Math.ceil((introEndsAt-Date.now())/1000));
+    const clock=$('#introClock');if(clock)clock.textContent=mmss(left);
+    if(left===0){
+      const button=$('[data-action="start"]');if(button)button.disabled=false;
+      clearInterval(introTimer);introTimer=null;
+      startInvestigation();
+    }
+  }
   function viewSetup() {
     // Legacy step 0 was a placeholder video; both 0 and 1 now show the character cards.
     const step = Math.max(1, SERVER.onboardingStep || 0);
+    if(step===1&&SERVER.mode==='stories'&&introEndsAt===null){
+      introEndsAt=Date.now()+(SERVER.onboardingRemaining??25)*1000;
+      introTimer=setInterval(tickIntro,250);
+    }
     if (step === 1) return `<section class="onboarding stack stack--lg">
       <h1 class="hero__title">六個人，六種說法</h1>
       <p class="hero__lead">${esc(SCENARIO.brief.question)}</p>
-      <div class="roster roster--intro">${SCENARIO.characters.map(c => `<div class="roster__item"><img class="roster__photo" src="../assets/img/game/char_${c.key}.jpg" alt="${esc(c.name)}" />${who(c.key)}</div>`).join('')}</div>
-      <div class="actions"><button class="btn btn--primary btn--lg" data-action="onboardingNext">調查須知</button></div>
+      ${SERVER.mode==='stories'?'<p class="muted">請閱讀角色介紹 25 秒，期間不能跳過。右上角倒數結束後自動開始調查。</p>':''}
+      <div class="roster roster--intro">${SCENARIO.characters.map(c => `<div class="roster__item">${SERVER.mode==='stories'&&!c.image?`<div class="roster__placeholder" aria-hidden="true">${esc(c.name)}</div>`:`<img class="roster__photo" src="../${esc(c.image||`assets/img/game/char_${c.key}.jpg`)}" alt="${esc(c.name)}" />`}${who(c.key)}</div>`).join('')}</div>
+      <div class="actions"><button class="btn btn--primary btn--lg" data-action="${SERVER.mode==='stories'?'start':'onboardingNext'}" ${SERVER.mode==='stories'&&introEndsAt>Date.now()?'disabled':''}>${SERVER.mode==='stories'?'開始調查':'調查須知'}</button></div>
     </section>`;
     return `<section class="onboarding stack stack--lg">
       <h1 class="hero__title">調查須知</h1>
-      <p>六個關卡，一起釐清蛋糕消失的經過。</p>
-      <p>每關有 6 則證詞，分類正確一則得 1 分，每關最高 6 分，六關共 36 分。推理理由會另外提供評語，不計入分類得分。</p>
+      <p>${SERVER.mode==='stories'?`六個關卡，一起調查《${esc(SCENARIO.title)}》。`:'六個關卡，一起釐清蛋糕消失的經過。'}</p>
+      <p>每關有 6 則證詞，分類正確一則得 1 分，每關最高 6 分，六關共 36 分。推理理由不計入分類得分。</p>
       <ol class="instructions">
         <li><strong>觀看劇情、閱讀六人的發言</strong><p>先了解這一關的線索，再開始訊問。</p></li>
         <li><strong>訊問六位角色</strong><p>共 ${mmss(INTERROGATION.seconds)}，可自由打字提問。等待回答也會計時，未送出的文字會另外保存。</p></li>
         <li><strong>分類證詞，寫下推理</strong><p>共 ${mmss(PHASE_SECONDS.combined || 240)}。上方分類、下方選人並說明理由，送出前都可以修改。</p></li>
       </ol>
-      <p class="muted">作答會自動保存，重新登入可接續進度。離開或重整頁面不會暫停倒數；時間到會保存當下作答。完成六關後，請填寫後測問卷。</p>
+      <p class="muted">作答會自動保存，重新登入可接續進度。離開或重整頁面不會暫停倒數；時間到會保存當下作答。${SERVER.mode==='stories'?'完成兩個故事後，請依老師指示填寫問卷。':'完成六關後，請填寫後測問卷。'}</p>
       <div class="actions"><button class="btn btn--primary btn--lg" data-action="start">開始調查</button></div>
     </section>`;
   }
 
   function videoPlayer(src) {
-    return `<div class="video-wrap"><video id="introVideo" preload="auto" playsinline aria-label="調查說明影片" src="${esc(src)}"></video>
+    return `<div class="video-wrap"><video id="introVideo" preload="auto" playsinline ${SERVER.mode==='stories'?'':'controls'} controlslist="nodownload noplaybackrate" disablepictureinpicture aria-label="調查說明影片" src="${esc(src)}"></video>
       <div class="video-ph" id="videoPh" hidden><strong>影片暫時無法播放</strong><p>請先重試；若仍無法播放，請告知施測人員。</p><button class="btn btn--ghost" data-action="retryVideo">重新載入影片</button></div></div>
       <div class="video-start" id="videoStart" hidden><p>瀏覽器需要你先點一下，才能播放有聲影片。</p><button class="btn btn--primary" data-action="startVideo">開始播放</button></div>`;
   }
@@ -649,12 +754,15 @@
 
   async function startInvestigation() {
     const ok=await guard(async()=>{
+      if(SERVER.mode==='stories'&&SERVER.onboardingStep<2){
+        const r=await CK.onboarding(2);SERVER.onboardingStep=r.step;
+      }
       await CK.onboarding(3);
       $('#main').innerHTML='<div class="loading-screen"><h1>正在準備調查</h1><p>Now Loading</p><progress id="loadProgress" max="7" value="0" aria-label="載入進度"></progress></div>';
       let completed=0;
       const done=()=>{const n=$('#loadProgress');if(n)n.value=++completed;};
-      await Promise.all([CK.refresh().then(done), ...KEYS.map(k=>new Promise(resolve=>{
-        const img=new Image(); img.onload=img.onerror=()=>{done();resolve();};img.src=`../assets/img/game/avatar_${k}.jpg`;
+      await Promise.all([CK.refresh().then(done), ...KEYS.filter(k=>SERVER.mode!=='stories'||charOf(k).image).map(k=>new Promise(resolve=>{
+        const img=new Image(); img.onload=img.onerror=()=>{done();resolve();};img.src=`../${SERVER.mode==='stories'?charOf(k).image:`assets/img/game/avatar_${k}.jpg`}`;
       }))]);
       state.screen='play';save();render();
     },'開始調查失敗');
@@ -689,9 +797,17 @@
     return `
       <div class="phase-head">
         <div>
-          <h1 class="phase-head__title">本關任務</h1>
+          <h1 class="phase-head__title">第 ${L.no} 關｜${esc(L.name)}</h1>
         </div>
-        <p class="phase-head__desc">${esc(L.task)}</p>
+        <p class="phase-head__desc">${esc([
+          '',
+          '每個人都提供了一些證詞，請思考每個證詞是否合理。',
+          '每個人的說詞都有一些假設，請思考每個人的假設是否合理。',
+          '每個人的說詞都有一些推論，請思考每個人的推論是否合理。',
+          '每個人的說詞都有一些推論，請思考每個人的推論是否合理。',
+          '每個人的說詞都有一些因果關係的解釋，請思考每個人的因果關係解釋是否合理。',
+          '每個人都提出了最後的論點，請思考每個人的論點是否合理。'
+        ][L.no] || L.task)}</p>
       </div>
       ${draft}
       ${body}
@@ -701,8 +817,9 @@
   /* == 影片（UI-01） == */
 
   function viewVideo() {
+    if(level().video.available===false)return `<div class="stack stack--lg"><div class="video-wrap video-missing" role="status"><h2>本關影片素材待補</h2><p>請告知老師，待影片補齊後再繼續調查。</p></div><div class="actions"><button class="btn btn--ghost" data-action="reloadStory">重新檢查影片</button></div></div>`;
     return `<div class="stack stack--lg">
-      <p class="video-status" id="videoStatus" role="status">請看完本關影片，再閱讀六人的發言。</p>
+      <p class="video-status" id="videoStatus" role="status">${SERVER.mode==='stories'&&lv().videoWatched?'已看完影片，右上角倒數結束後自動進入六人發言，也可以按按鈕繼續。':'請看完本關影片，再閱讀六人的發言。'}</p>
       ${videoPlayer(level().video.src)}
       <div class="actions"><button class="btn btn--primary btn--lg" data-action="videoDone" ${lv().videoWatched?'':'hidden'}>看六人的發言</button></div>
     </div>`;
@@ -725,7 +842,7 @@
           ${
             showText
               ? ''
-              : `<span class="tcard__photo" data-key="${key}"></span>
+              : `<span class="tcard__photo" ${SERVER.mode === 'stories' && !c.image ? '' : `data-key="${key}"`}${portraitStyle(key)}></span>
                  <span class="tcard__tag">SUBJ—0${key}</span>`
           }
           <span class="tcard__head">${avatar(key)}${who(key)}</span>
@@ -745,7 +862,7 @@
       <div class="stack stack--lg">
         <div class="row row--between">
           <p class="small muted">依序點開六個人各自掌握的資訊。已讀 <strong class="mono">${readCount}/6</strong>。<br />
-            讀過的卡片再點一下可以翻回角色介紹，想看說法就再點一次。</p>
+            讀過的卡片再點一下可以翻回角色介紹，想看說法就再點一次。${SERVER.mode==='stories'?'閱讀限時 1 分鐘，六人都讀完可提前進入訊問，時間到自動繼續。':''}</p>
 
         </div>
         <div class="tgrid">${cards}</div>
@@ -824,8 +941,11 @@
             <div class="chat__log" id="chatLog">${logHtml}</div>
             ${
               sel
-                ? `<aside class="chat__portrait" data-key="${sel}" data-speaking="${L.awaitingAnswer}" aria-hidden="true">
-                     <span class="chat__portrait-tag">SUBJ—0${sel}</span>
+                ? `<aside class="chat__reference" aria-label="${esc(charOf(sel).name)}的原始發言">
+                     <div class="chat__portrait" ${SERVER.mode === 'stories' && !charOf(sel).image ? '' : `data-key="${sel}"`}${portraitStyle(sel)} aria-hidden="true">${SERVER.mode === 'stories' && !charOf(sel).image ? esc(charOf(sel).name) : ''}</div>
+                     <div class="chat__reference-body"><h3>原始發言</h3>
+                       <blockquote>${esc(testimonyOf(sel).text)}</blockquote>
+                     </div>
                    </aside>`
                 : ''
             }
@@ -877,7 +997,7 @@
                   data-to="unclassified">移回待分類</button>
                 ${
                   placeOf(key) === 'reasonable'
-                    ? `<button class="assign__btn" data-zone="flaw" data-action="assign" data-key="${key}" data-to="flaw">改到破綻牆</button>`
+                    ? `<button class="assign__btn" data-zone="flaw" data-action="assign" data-key="${key}" data-to="flaw">改到「${ZONES.flaw.label}」</button>`
                     : `<button class="assign__btn" data-zone="reasonable" data-action="assign" data-key="${key}" data-to="reasonable">改到合理說法</button>`
                 }
               </span>`
@@ -917,8 +1037,8 @@
 
     return `
       <div class="stack stack--lg">
-        <div class="note"><span>把六個人的說法分成兩區：來源、範圍與限制清楚的放「${ZONES.reasonable.label}」；
-        技巧使用有瑕疵的放「${ZONES.flaw.label}」。提交前都可以改，提交或時間到後鎖定。
+        <div class="note"><span>每個人都提供了一些證詞，請思考每個證詞是否合理。<br>
+        請根據你的判斷，將每個人的說法，點選或拖拉至「合理」或「不合理」的區塊。
         <strong>本關有 ${level().reasonableCount} 則合理、${6 - level().reasonableCount} 則有瑕疵。</strong></span></div>
 
         <div class="wall">${zone('reasonable')}${zone('flaw')}</div>
@@ -958,13 +1078,23 @@
 
   /* == 選出最不合理的人與理由（UI-04） == */
 
+  /* 送出按鈕的狀態：三個條件缺哪個就直接說哪個。
+     以前沒提到「六張都要分類」，學生會看到寫著送出卻按不下去的按鈕（第三、五關回報無法送出）。 */
+  function submitBlocker(L) {
+    const left=phase()==='combined'?KEYS.filter(k=>!['reasonable','flaw'].includes(L.placements[k])).length:0;
+    if(left)return `還有 ${left} 則說法未分類`;
+    if(!L.pick)return '請先勾選一個人';
+    if(!L.reason.trim())return '請先寫下理由';
+    return '';
+  }
+
   function viewRanking() {
     const L = lv();
     const locked = isReview() || L.rankingSubmitted || L.timedOut[livePhase()];
     const len = L.reason.trim().length;
     /* 不設字數門檻（受試者打得到、打不到都有可能），只要求不是空白 */
     const reasonOk = len > 0;
-    const ok = !!L.pick && reasonOk && (phase()!=='combined'||KEYS.every(k=>['reasonable','flaw'].includes(L.placements[k]))); // 勾選與理由都齊了才能送出
+    const ok = !submitBlocker(L);
     const allOpen = KEYS.every((k) => L.expanded[k]);
 
     /* 回顧區：只顯示「系統給過他看的材料」——說法與他追問到的回答。
@@ -1057,13 +1187,7 @@
                 ? '<div class="note"><span>選擇與理由已鎖定。</span></div>'
                 : `<button class="btn btn--primary btn--lg btn--block" data-action="confirmSubmit" ${
                     ok ? '' : 'disabled'
-                  }>${
-                    ok
-                      ? '送出本關作答'
-                      : !L.pick
-                      ? '請先勾選一個人'
-                      : '請先寫下理由'
-                  }</button>`
+                  }>${ok ? '送出本關作答' : submitBlocker(L)}</button>`
             }
           </div>
         </div>
@@ -1162,13 +1286,22 @@
       }
     }
 
+    if(SERVER.mode==='stories'&&hasAiFeedback()&&feedbackData.readingRemaining!=null){
+      const L=lv();
+      if(!L.deadlines.feedback){
+        L.timeLeft.feedback=Math.max(1,feedbackData.readingRemaining);
+        L.deadlines.feedback=Date.now()+L.timeLeft.feedback*1000;
+      }
+      L.timedOut.feedback=false;
+      renderTopbar();startTicker();
+    }
     renderFeedback();
   }
 
   function renderFeedback() {
     const L = lv();
     const isLast = state.levelIndex === SCENARIO.levels.length - 1;
-    const nextLabel = isLast ? '完成調查，前往後測問卷' : '確認，進入下一關';
+    const nextLabel = isLast ? (SERVER.mode === 'stories' ? '完成這個故事' : '完成調查，前往後測問卷') : '確認，進入下一關';
 
     let body,scoreHeader='';
     /* 實驗組的逐則對照需要 testimonies 與 evidence。回應若殘缺就退回完成訊息，
@@ -1178,6 +1311,10 @@
       feedbackData.detailed && feedbackData.testimonies && feedbackData.evidence;
 
     if (!detailed) {
+      if(Number.isInteger(feedbackData.score)){
+        SERVER.totalScore=feedbackData.totalScore;renderTopbar();
+        scoreHeader=`<div class="feedback-score" aria-label="證詞分類得分"><div><span>本關得分</span><strong>${feedbackData.score}<span>/6</span></strong></div><div><span>累積得分</span><strong>${SERVER.totalScore}<span>/36</span></strong></div></div>`;
+      }
       /* UI-05 控制組回饋：只給完成訊息，不揭露任何判定 */
       body = `
         <p class="serif" style="font-size:var(--fs-lg)">你已完成該階段的關卡～</p>
@@ -1248,7 +1385,10 @@
           ${detailed?'<p class="feedback-subtitle">你知道你這關哪些想法出了問題嗎</p>':''}
         </div>
         ${scoreHeader}
-        <button class="modal__close" data-action="feedbackNext" aria-label="關閉並繼續">×</button>
+        <div class="feedback-tools">
+          ${phaseDuration('feedback')?`<span class="timer" role="timer" aria-label="回饋閱讀時間" data-label="閱讀時間"><span class="timer__text" id="feedbackClock">${mmss(lv().timeLeft.feedback??30)}</span></span>`:''}
+          <button class="modal__close" data-action="feedbackNext" aria-label="關閉並繼續">×</button>
+        </div>
       </div>
       <div class="modal__body">${body}</div>
       <div class="modal__foot">
@@ -1392,13 +1532,16 @@
     const L = state.screen === 'play' ? lv() : null;
 
     switch (a) {
+      case 'nextStory': guard(async()=>{await CK.nextStory();location.reload();},'下一個故事尚未開始，請重試');break;
+      case 'releaseResults': guard(async()=>{await CK.release();location.href='results.html';},'成果尚未開放，請重試');break;
+      case 'reloadStory': location.reload();break;
       /* ---- 開場 ---- */
       case 'start':
         startInvestigation(); break;
       case 'onboardingNext':
         guard(async()=>{ const r=await CK.onboarding(Math.max(1,SERVER.onboardingStep)+1);SERVER.onboardingStep=r.step;render(); },'進度保存失敗'); break;
       case 'retryVideo':
-        $('#videoPh').hidden=true;$('#introVideo').load();startVideo();break;
+        $('#videoPh').hidden=true;$('#introVideo').load();startVideo();break; // loadedmetadata 會接回中斷的位置
       case 'startVideo':
         startVideo();break;
       case 'retryVideoSave':
@@ -1561,10 +1704,9 @@
       box.lastElementChild.textContent = `${len} 字`;
       const submit = document.querySelector('[data-action="confirmSubmit"]');
       if (submit) {
-        /* 送出要同時滿足「勾了一個人」與「寫了理由」，兩個條件分別提示 */
-        const picked = !!lv().pick;
-        submit.disabled = !picked || len === 0 || (phase()==='combined'&&!KEYS.every(k=>['reasonable','flaw'].includes(lv().placements[k])));
-        submit.textContent = !picked ? '請先勾選一個人' : len > 0 ? '送出本關作答' : '請先寫下理由';
+        const blocker = submitBlocker(lv());
+        submit.disabled = !!blocker;
+        submit.textContent = blocker || '送出本關作答';
       }
     }
   });
@@ -1646,26 +1788,44 @@
     const guide=state.screen==='setup';const no=guide?0:level().no;
     const saved=guide?SERVER.guideVideo:SERVER.videoProgress;
     let lastSaved=0;
-    v.addEventListener('loadedmetadata',()=>{ph.hidden=true;if(saved?.position && saved.position < v.duration-0.5)v.currentTime=saved.position;});
+    /* 可以暫停、往回拖，但不能拖到還沒看過的地方：必須完整看過一次才算完成 */
+    let furthest=saved?.completed?Infinity:(saved?.position||0);
+    // 斷線重載或畫面重繪換掉 <video> 時，從看到的地方接續，不要從頭重播
+    const resume=()=>{const at=saved?.position||0;if(at && at < v.duration-0.5)v.currentTime=at;};
+    v.addEventListener('loadedmetadata',()=>{ph.hidden=true;resume();});
     v.addEventListener('error',()=>{ph.hidden=false;});
+    v.addEventListener('seeking',()=>{if(v.currentTime>furthest+1){v.currentTime=furthest;toast('還沒看過的部分不能快轉','warn');}});
     const persist=async(complete=false)=>{
       if(!Number.isFinite(v.duration) || v.duration<=0)return;
-      await CK.video(no,v.currentTime,v.duration,complete);
-      lastSaved=v.currentTime;
+      const at=v.currentTime;
+      await CK.video(no,at,v.duration,complete);
+      lastSaved=at;if(saved)saved.position=Math.max(saved.position||0,at); // 伺服器也是存最遠位置
     };
-    v.addEventListener('timeupdate',()=>{if(v.currentTime-lastSaved>=5){lastSaved=v.currentTime;persist().catch(()=>{});}});
-    v.addEventListener('pause',()=>{persist().catch(()=>{});});
+    v.addEventListener('timeupdate',()=>{
+      if(!v.seeking&&v.currentTime<=furthest+1)furthest=Math.max(furthest,v.currentTime);
+      if(Math.abs(v.currentTime-lastSaved)>=5){lastSaved=v.currentTime;persist().catch(()=>{});}
+    });
+    let playbackStarted=false;
+    v.addEventListener('playing',()=>{playbackStarted=true;});
+    v.addEventListener('ratechange',()=>{if(SERVER.mode==='stories'&&v.playbackRate!==1)v.playbackRate=1;});
+    v.addEventListener('pause',()=>{
+      persist().catch(()=>{});
+      if(SERVER.mode==='stories'&&playbackStarted&&v.isConnected&&!v.ended&&!v.error&&!saved?.completed)startVideo();
+    });
     v.addEventListener('ended',async()=>{
       const status=$('#videoStatus');if(status)status.textContent='正在保存觀看進度…';
       try{
         await persist(true);
         if(guide)SERVER.guideVideo.completed=true;else {lv().videoWatched=true;save();}
         const btn=$(guide?'[data-action="onboardingNext"]':'[data-action="videoDone"]');if(btn)btn.hidden=false;
-        if(status)status.textContent='已看完影片，可以繼續。';
+        if(!guide&&SERVER.mode==='stories'&&livePhase()==='video'){
+          applyServerTimer(await CK.refresh());ensureTimer();renderTopbar();startTicker();
+        }
+        if(status)status.textContent=SERVER.mode==='stories'?'已看完影片，10 秒後自動進入六人發言，也可以按按鈕繼續。':'已看完影片，可以繼續。';
       }catch(e){if(status)status.innerHTML=`觀看進度尚未保存。<button class="btn btn--ghost" data-action="retryVideoSave">重試保存</button>`;}
     });
-    if(v.readyState>=1){ph.hidden=true;if(saved?.position && saved.position<v.duration-0.5)v.currentTime=saved.position;}
-    startVideo();
+    if(v.readyState>=1){ph.hidden=true;resume();}
+    if(!saved?.completed)startVideo();
   }
 
   const observer = new MutationObserver(wireVideo);
@@ -1680,12 +1840,22 @@
     let s;
     try {
       s = await CK.boot();
+      if(SERVER.mode==='stories'&&SERVER.onboardingStep<2&&s.onboardingRemaining==null){
+        await CK.onboarding(1);s=await CK.boot();
+      }
+      // The instructions now live on the consent page. Resume old step-2 runs directly in the investigation.
+      if(SERVER.mode==='stories'&&SERVER.onboardingStep===2){
+        await CK.onboarding(3);s=await CK.boot();
+      }
     } catch (e) {
       main.innerHTML = `<div class="note note--warn"><span><strong>載入失敗　</strong>${esc(e.message)}
         <br />請重新整理頁面；若持續失敗，請告知施測人員。</span></div>`;
       return;
     }
 
+    if(SERVER.mode==='stories')STORAGE_KEY=`ck-ui-state-v3-${SERVER.stuId}-${SERVER.runId}`;
+    document.title=SCENARIO.title;
+    document.body.dataset.story=SERVER.story?.id||'cake';
     /* 先套伺服器的權威狀態，再把純介面狀態（翻開了哪張卡、計時剩餘）疊回去 */
     if(SERVER.flowVersion>=2){PHASES=['video','testimony','interrogation','combined','feedback'];TAB_PHASES=['video','testimony','interrogation','combined'];}
     applyServerState(s);
@@ -1715,6 +1885,11 @@
         main.innerHTML='<div class="note"><p>仍有草稿尚未同步，已保留在這台裝置。請恢復連線後重試保存，再進入後測。</p></div><div class="actions"><button class="btn btn--primary" id="retrySync">重試保存</button></div>';
         $('#retrySync').onclick=()=>boot();return;
       }
+      if(SERVER.mode==='stories'){
+        if(SERVER.postCompleted){location.href='results.html';return;}
+        if(SERVER.studyCompleted){location.href='survey.html?kind=post';return;}
+        state.screen='storyBreak';render();return;
+      }
       location.href=SERVER.postCompleted?'results.html':'survey.html?kind=post';
       return;
     }
@@ -1736,7 +1911,7 @@
   window.addEventListener('pagehide',()=>{
     if(!state || state.screen!=='play')return;save();
     const p=livePhase(),revision=lv().draftRevision[p];
-    if(revision&&!lv().rankingSubmitted)fetch(`${API}/ck_draft.php`,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',keepalive:true,body:JSON.stringify({levelNo:level().no,phase:p,payload:draftPayload(p),revision})}).catch(()=>{});
+    if(revision&&!lv().rankingSubmitted)CK.draftOnExit({levelNo:level().no,phase:p,payload:draftPayload(p),revision}).catch(()=>{});
   });
   boot();
 })();

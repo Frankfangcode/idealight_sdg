@@ -1,5 +1,13 @@
 # 隔離驗證
 
+## 雙故事影片案例（2026-10-18）
+
+2026-10-27：人物照片已放在 media/cake、media/drink。隔離站點會複製這兩目錄中的圖片檔（jpg/jpeg/png/webp），仍不複製真實影片；present 模式只加入既有一秒影片。圖片映射、實際解碼及證詞／訊問不串角色由 story-ui.test.mjs 的 each story loads 案例驗證。
+
+`storyServer(t, {}, {media:'missing'})` 建立獨立暫存站點，複製程式與畫面資源但不複製 lab 的 media／.env，用真實 PHP 檔案檢查驗證缺片阻擋。`media:'present'` 在該副本的飲料第一關放入既有 `tests/fixtures/one-second.mp4`，讓 Chrome 真實播放、保存完成狀態並前進。這些案例不再依賴 lab 是否已補齊影片，不要搬動或刪除現有影片配合測試。
+
+站點沿用既有合成帳號測試資料庫連線，AI 限本機假服務；結束停止測試服務、刪除自己的帳號與分派序列，再移除自己建立且已確認路徑的暫存副本。沒有新增／刪除資料庫。這不改變下方「整個專案全套」所需的隔離資料庫條件。
+
 測試會新增合成學生、調整合成回合的時間，並建立／刪除 `idealight_test_install_*`、`idealight_test_migrate_*`、`idealight_test_review_migrate_*` 暫存資料庫。**不可指定正式資料庫或真實 AI 試玩網站。** `TEST_DB` 必須以 `idealight_test_` 開頭，`TEST_URL` 必須明確指定本機地址；這只是防呆，仍須確認網站端的 DB_NAME 也指向同一個隔離資料庫。
 
 已實測環境與逐項結果見 [原相容性報告](../docs/testing/2026-09-26-xampp.md)及 [Windows 原生驗證](../docs/testing/2026-09-26-windows-native.md)。全套為 35 個測試案例。新建資料庫支援 MariaDB 10.4.32 與 MySQL；不代表任何舊資料備份都能直接跨引擎匯入。

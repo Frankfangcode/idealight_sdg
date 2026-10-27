@@ -7,6 +7,8 @@
 
 ## 系統需求
 
+2026-10-03 新增的双故事流程目前預設停用，尚未部署。內容、資料表、啟用條件與安全驗證指令見 [雙故事維護說明](docs/two-stories.md)。以下舊單故事／SDG 安裝資訊仍保留；本機既有資料庫不得依全新安裝步驟重建。
+
 - Apache + PHP ≥ 8.0（需 `pdo_mysql`、`curl`、`openssl`、`mbstring` 擴充）；本輪驗證 PHP 8.2.12／8.5.9
 - MySQL 8.0+ 或 MariaDB 10.4+；本輪實測 MySQL 9.6、MariaDB 10.4.32，全新建表使用共通的 utf8mb4_unicode_ci。舊備份搬移須另行驗證
 - 對外連線需可達 `generativelanguage.googleapis.com`（蛋糕實驗：訊問時的 AI 角色、AI 回饋）
@@ -83,7 +85,7 @@ if not exist .env copy .env.example .env
 |---|---|
 | `DB_HOST` / `DB_NAME` / `DB_USER` / `DB_PASS` | MySQL 連線（預設對齊 XAMPP 出廠設定） |
 | `LLM_API_KEY` | 蛋糕實驗的金鑰（訊問的 AI 角色與 AI 回饋共用）。預設供應商是 Google AI Studio，金鑰以 `AIza` 開頭。**金鑰失效時訊問不會報錯**，角色只會回備援台詞（見下方驗收） |
-| `LLM_MODEL` | 選填，預設 `gemma-4-26b-a4b-it`（實測首字約 1 秒）。不要換成 `gemma-4-31b-it`：首字約 18 秒，而訊問等待時間不暫停計時 |
+| `LLM_MODEL` | 選填，預設 `gemini-3.5-flash-lite`（實測首字約 0.6 秒；付費模型，金鑰須綁帳單）。`gemma-4-26b-a4b-it` 免費但約三成呼叫回 HTTP 500。不要換成 `gemma-4-31b-it`：首字約 18 秒，而訊問等待時間不暫停計時 |
 | `LLM_REASONING_EFFORT` | 選填，預設 `minimal`。Gemma 4 不設這個會先思考再回答，思考過程還會混進回答裡；Google 只接受 `minimal`。換成不支援此參數的供應商時填 `omit` |
 | `LLM_BASE_URL` | 選填，預設 Google 的 OpenAI 相容端點。換供應商或開發時指到本機假伺服器用 |
 | `OPENAI_API_KEY` | **只給 SDG 實驗**的 `chat.php`／`evaluate.php` 用，固定打 `api.openai.com`。別家的金鑰不要填這裡 |

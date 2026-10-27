@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {openUi,uiState,uiFeedback} from './ui-harness.mjs';
+import {fileURLToPath} from 'node:url';
+import {readFileSync} from 'node:fs';
 
 test('new and existing onboarding starts with character cards and reaches the first level without a guide video',async t=>{
  for(const onboardingStep of [0,1]){
@@ -21,12 +23,12 @@ test('new and existing onboarding starts with character cards and reaches the fi
  }
 });
 
-test('allowed autoplay starts without player controls and unlocks next only after viewing is saved',async t=>{
+test('allowed autoplay starts with pause controls and unlocks next only after viewing is saved',async t=>{
  const {page,requests}=await openUi(t,{state:uiState({onboardingStep:3})});
  await page.locator('video').waitFor();
  assert.equal(await page.getByRole('button',{name:'看六人的發言'}).isVisible(),false);
  await page.waitForFunction(()=>document.querySelector('video').currentTime>0,{},{timeout:3000});
- assert.equal(await page.locator('video').evaluate(v=>v.controls),false);
+ assert.equal(await page.locator('video').evaluate(v=>v.controls),true);
  await page.getByRole('button',{name:'看六人的發言'}).waitFor();
  assert.ok(requests.some(r=>r.name==='ck_video.php'&&r.body.completed===true));
  await page.getByRole('button',{name:'看六人的發言'}).click();
@@ -47,14 +49,14 @@ test('blocked autoplay offers a start action and keeps completion locked until p
  await page.getByRole('button',{name:'看六人的發言'}).waitFor();
 });
 
-test('failed media can be reloaded and played without exposing controls or skipping the completion gate',async t=>{
+test('failed media can be reloaded and played without skipping the completion gate',async t=>{
  let fail=true;
  const {page}=await openUi(t,{state:uiState({onboardingStep:3}),before:page=>page.route('**/media/*.mp4',route=>fail?route.fulfill({status:404,body:''}):route.continue())});
  await page.getByRole('button',{name:'重新載入影片'}).waitFor();
  assert.equal(await page.getByRole('button',{name:'看六人的發言'}).isVisible(),false);
  fail=false;await page.getByRole('button',{name:'重新載入影片'}).click();
  await page.waitForFunction(()=>document.querySelector('video').currentTime>0,{},{timeout:3000});
- assert.equal(await page.locator('video').evaluate(v=>v.controls),false);
+ assert.equal(await page.locator('video').evaluate(v=>v.controls),true);
  await page.getByRole('button',{name:'看六人的發言'}).waitFor();
 });
 
@@ -92,4 +94,26 @@ test('a failed viewing save can be retried without replaying or unlocking early'
  await page.getByRole('button',{name:'重試保存',exact:true}).click();
  await page.getByRole('button',{name:'看六人的發言'}).waitFor();
  assert.equal(await page.locator('video').evaluate(v=>v.ended),true);
+});
+
+test('viewers can pause and rewind but cannot drag past the furthest point watched, and resume from the saved position',async t=>{
+ const real=new URL('../media/drink/intro-L2.mp4',import.meta.url);
+ const {page,requests}=await openUi(t,{state:uiState({onboardingStep:3,videoProgress:{position:12,completed:false}}),before:page=>page.route('**/media/*.mp4',async route=>{
+  // 拖曳需要 Range 請求（Apache 本來就支援），測試伺服器沒有，這裡自己回 206
+  const body=readFileSync(fileURLToPath(real)),m=/bytes=(\d+)-(\d*)/.exec(route.request().headers().range||'');
+  if(!m)return route.fulfill({status:200,body,headers:{'Content-Type':'video/mp4','Accept-Ranges':'bytes'}});
+  const start=+m[1],end=m[2]?+m[2]:body.length-1;
+  return route.fulfill({status:206,body:body.subarray(start,end+1),headers:{'Content-Type':'video/mp4','Accept-Ranges':'bytes','Content-Range':`bytes ${start}-${end}/${body.length}`}});
+ })});
+ await page.waitForFunction(()=>document.querySelector('video').currentTime>=12,{},{timeout:5000});
+ const r=await page.locator('video').evaluate(async v=>{
+  const wait=()=>new Promise(res=>setTimeout(res,400));
+  v.pause();const paused=v.paused;
+  v.currentTime=3;await wait();const back=v.currentTime;
+  v.currentTime=35;await wait();const ahead=v.currentTime;
+  return {paused,back,ahead};
+ });
+ assert.equal(r.paused,true);assert.ok(r.back>=2.5&&r.back<4,JSON.stringify(r));assert.ok(r.ahead<14,JSON.stringify(r));
+ assert.equal(await page.getByRole('button',{name:'看六人的發言'}).isVisible(),false);
+ assert.equal(requests.some(x=>x.name==='ck_video.php'&&x.body.completed===true),false);
 });

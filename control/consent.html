@@ -29,7 +29,7 @@
       <!-- 01. 知情同意書 -->
       <!-- <div id="consent"></div> -->
        <div class="uk-section uk-container uk-container-small">
-        <h2 class="uk-heading-bullet">實驗說明與受試者同意書</h2>
+        <h2 class="uk-heading-bullet">實驗說明</h2>
 
         <div class="uk-card uk-card-default uk-card-body uk-margin">
          <p>歡迎您參與這個實驗，實驗時間(含準備、休息、領取禮券)約90-100分鐘。</p>
@@ -41,14 +41,35 @@
         </ul>-->
         </div>
 
-        <div class="uk-text-center uk-margin">
+        <div id="legacy-overview" class="uk-text-center uk-margin">
           <a href="../assets/img/game/experiment-overview.png" target="_blank" rel="noopener" aria-label="在新分頁開啟六關實驗流程說明圖，可放大閱讀">
             <img src="../assets/img/game/experiment-overview.png" width="1672" height="941" alt="六關蛋糕調查實驗流程：每關觀看影片、閱讀六人證詞、訊問 AI 角色2分30秒、分類證詞與撰寫理由共4分鐘；完成六關後填寫後測，再查看結果與案件解析。分類總分36分，推理評語不計入分類分數。">
           </a>
-          <p class="uk-text-small">點擊圖片可開啟完整尺寸，放大閱讀。</p>
           <!-- <img src="../assets/img/info/ic1.jpg" alt="informed-consent-p1">
           <img src="../assets/img/info/ic2.jpg" alt="informed-consent-p2">
           <img src="../assets/img/info/ic3.jpg" alt="informed-consent-p3"> -->
+        </div>
+
+        <div id="story-overview" class="uk-card uk-card-default uk-card-body uk-margin" hidden>
+          <div class="uk-text-center uk-margin-bottom">
+            <a href="../assets/img/game/experiment-timeline.png" target="_blank" rel="noopener" aria-label="開啟實驗流程原圖，可放大閱讀">
+              <img src="../assets/img/game/experiment-timeline.png" width="3272" height="771" alt="前測問卷10分鐘、故事一第1至6關25分鐘、休息5分鐘、故事二第1至6關25分鐘、後測問卷10分鐘、實驗回饋5分鐘。">
+            </a>
+          </div>
+          <p>依系統安排的順序，調查《消失的蛋糕》與《第九杯飲料》，每個故事各有六個關卡。</p>
+          <p>每關有 6 則證詞，分類正確一則得 1 分，每關最高 6 分，六關共 36 分。推理理由不計入分類得分。</p>
+          <ol class="uk-list uk-list-decimal">
+            <li><strong>觀看劇情、閱讀六人的發言</strong><p>先了解這一關的線索，再開始訊問。</p></li>
+            <li><strong>訊問六位角色</strong><p>共 1:00，可自由打字提問。等待回答也會計時，未送出的文字會另外保存。</p></li>
+            <li><strong>分類證詞，寫下推理</strong><p>共 2:00。上方分類、下方選人並說明理由，送出前都可以修改。</p></li>
+          </ol>
+          <p>本次實際時限以文字說明為準：兩個故事中間休息 3 分鐘。劇情影片開始播放後不能暫停；每關六人發言限時 1 分鐘。若本關提供回饋，載入完成後有 30 秒閱讀時間，可按繼續提前前進，時間到自動進入下一關。</p>
+          <p>作答會自動保存，重新登入可接續進度。離開或重整頁面不會暫停倒數；時間到會保存當下作答。完成兩個故事後，請依老師指示填寫問卷。</p>
+          <div class="uk-text-center uk-margin-top">
+            <a href="../assets/img/game/experiment-navigation.jpg" target="_blank" rel="noopener" aria-label="開啟關卡操作列原圖，可放大閱讀">
+              <img src="../assets/img/game/experiment-navigation.jpg" width="882" height="65" alt="關卡操作依序為：劇情影片、六人發言、訊問、分類與推理。">
+            </a>
+          </div>
         </div>
 
         <label class="uk-margin">
@@ -58,7 +79,7 @@
 
         <div class="uk-margin">
         <button id="start-btn" class="uk-button uk-button-danger uk-button-large" disabled>
-          認識案件角色
+          開始調查
         </button>
         </div>
       </div>
@@ -82,18 +103,21 @@
     <script>
         const checkbox = document.getElementById('agree');
         const btn = document.getElementById('start-btn');
+        fetch('../api/public/ck_state.php', {credentials: 'same-origin', cache: 'no-store'})
+          .then(response => response.ok ? response.json() : null)
+          .then(state => {
+            if (state && state.mode === 'stories') {
+              document.getElementById('legacy-overview').hidden = true;
+              document.getElementById('story-overview').hidden = false;
+            }
+          }).catch(() => {});
         
         checkbox.onchange = () => {
             btn.disabled = !checkbox.checked;
         };
 
         btn.onclick = () => {
-            // cake 流程：知情同意 → 六關遊戲 → 真相 → debriefing → 後測問卷
-            // 前測問卷改為受試者事先在家完成，現場不再經過 survey.html?kind=pre。
-            // 舊的 SDG 流程走 flow.html（《永續生活提案GO》的流程說明），
-            // 那一頁的內容不適用於本實驗，故略過。
             window.location.href = 'game.html';
-            // window.location.href = 'flow.html';
         };
     </script>
 

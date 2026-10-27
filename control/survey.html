@@ -46,6 +46,8 @@
 
         const kind = new URLSearchParams(location.search).get('kind') === 'post' ? 'post' : 'pre';
         const isPre = kind === 'pre';
+        // 前測暫不顯示；保留設定與歷史紀錄，舊入口直接接續調查。
+        if (isPre) { location.replace('game.html'); return; }
         const label = isPre ? '前測問卷' : '後測問卷';
         const nextLabel = isPre ? '填答完成，開始調查' : '填答完成，查看調查成果';
 
@@ -90,6 +92,7 @@
                 allowtransparency="true"></iframe>
 
               <div class="actions">
+                ${isPre ? '<button class="btn btn--ghost btn--lg" id="skip">已做過前測</button>' : ''}
                 <button class="btn btn--primary btn--lg" id="done">${esc(nextLabel)}</button>
               </div>
               <p class="small muted center">
@@ -103,6 +106,20 @@
             btn.disabled = true;
             try {
               await CK.completeSurvey(kind);
+              next();
+            } catch (e) {
+              btn.disabled = false;
+              alert(`回報失敗：${e.message}`);
+            }
+          });
+
+          // 部分受試者已在別處做過前測：記一筆略過後直接進下一頁
+          if (isPre) $('#skip').addEventListener('click', async () => {
+            if (!confirm('確定已經做過前測，要直接開始調查嗎？')) return;
+            const btn = $('#skip');
+            btn.disabled = true;
+            try {
+              await CK.skipSurvey(kind);
               next();
             } catch (e) {
               btn.disabled = false;

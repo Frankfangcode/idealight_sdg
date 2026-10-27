@@ -187,6 +187,8 @@ function ck_grading_data(int $levelNo): array
  */
 function ck_run(string $stuId): array
 {
+    require_once __DIR__.'/stories.php';
+    if(story_installed() && story_study($stuId))throw new RuntimeException('This student must use the assigned story route');
     $pdo = db();
     $get = $pdo->prepare('SELECT r.*, COALESCE(s.flow_version,1) AS flow_version,
         COALESCE(s.onboarding_step,3) AS onboarding_step

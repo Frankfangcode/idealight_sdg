@@ -1,3 +1,327 @@
+# 本輪狀態：下一場新學生只分實驗組、保存 Git checkpoint（2026-10-28）
+
+使用者明確要求本輪不跑測試、先推上 Git 記錄版本；已確認只調整新學生，保留既有分組及作答。api/src/stories.php 新增 STORY_EXPERIMENT_ONLY=1 時新分派採 slot 2／3，代碼2-1／2-2，維持故事順序交替。既有 study／legacy run 的提早返回保留，不做資料庫遷移或批次更改學生。新增本機 .env 設定及 .env.example 示範，設定需手動關閉，沒有日期排程。保留所有既有未提交工作。
+
+依本輪明確指示未執行測試、lint、畫面驗收；不能把前輪53項通過當作本次新分派行為的驗證。產品教學已說明新舊學生範圍、保留交替順序，以及分支checkpoint與正式發布的差別。套用 product-owner-teaching，未套用或宣稱TDD本輪完成。其他環境的 .env 需同步，四組測試未來執行須明確指定 STORY_EXPERIMENT_ONLY=0。
+
+準備將目前 fix/xiaomai-ui-followup 分支的程式、文件、既有測試、兩張實驗圖與使用中人物照片提交推送至既有 origin；不合併main／不部署，因使用者此輪要求為先存版本且明確略過測試。大型影片、重複原始／剪輯素材、.claude/settings.local.json、.env與截圖不納入。影片留原位置，docs/two-stories.md記錄還原必備路徑；本次不是完整媒體／資料庫備份。Git提交／推送結果於對話回報。
+
+---
+
+# 前輪狀態：後測網址更新、前測暫不顯示（2026-10-28）
+
+使用者要求後測改 https://www.surveycake.com/s/1QN67，前測先不顯示。已精準修改本機 .env 的 SURVEYCAKE_POST_URL（未輸出其他設定）及 .env.example；control/consent.html 按鈕為「開始調查」，同意後直接進 game.html；control/survey.html 的前測入口在呼叫 API 前轉入遊戲。保留前測網址與 API、原歷史紀錄，不記已做過／已完成，不刪資料。後測仍限兩故事完成後，仍沿用原學號 query 與自我回報完成流程。原流程圖片仍是歷史內容。本輪保留全部既有未提交內容與分支。
+
+產品教學已交付：暫時隱藏入口並保留設定，比刪除前測功能容易恢復；畫面轉入遊戲而不呼叫前測 API，避免新增不實完成紀錄。無新資料表、套件、費用或服務。未改對外參數、權限及完成門檻，未新增真實個資傳送操作。
+
+TDD：先改 hidden pre-survey 案例，原版仍停在前測而 timeout 失敗；轉址後通過。consent 同意後進遊戲、舊前測入口轉址且 ck_surveys 前測零紀錄、後測 iframe 新 origin/path 與既有學號 query、後測無 skip 均驗證。53 項安全範圍回歸全部通過：.screenshots/survey-link-regression.log，Node summary 53 passed／0 failed／0 skipped，exit0；沿用前輪11檔命令與 TEST_PHP_BINARY=C:/xampp/php/php.exe。git diff --check 通過。這不是全專案全套，仍受建刪其他測試庫限制，未commit／merge／push。
+
+原 Apache8081 .screenshots/survey-link-live.mjs 用合成帳號驗證 .env 實際提供新後測網址、前測舊入口無紀錄轉入遊戲、同意後直接進遊戲；清理後不能登入，無 pageerror。攔截 SurveyCake 網域，以本地 fixture 代替外部問卷內容，未傳送合成學號到第三方、未送出問卷；不宣稱 SurveyCake 真實內容或送出流程已驗收。兩輪1280×800／375×812，consent／post 共8張截圖均讀回（.screenshots/survey-link-round{1,2}-{consent,post}-{desktop,mobile}.png）。八項人工自檢：層次（開始調查／後測提示）、留白與字體配色（沿用原版）、對齊（按鈕正常）、響應式（可讀無可見溢出）、狀態（同意門檻／直接跳轉）、動效（未新增）。Impeccable 沿用人工fallback，不宣稱hook掃描通過。
+
+簡短 QA 以學生流程／施測者紀錄正確性驗證，沿用原權限與合成資料門檻測試，未擴大第三方主動測試。docs/two-stories.md 已記錄。lab http://127.0.0.1:8081/ 已生效；其他部署環境仍須同步 SURVEYCAKE_POST_URL（.env 不提交）。已套用 product-owner-teaching、test-driven-development、verification-before-completion、impeccable（人工）、emil-design-eng、playwright-cli，沿用已讀政策。下一步仍是既有完整測試環境與流程圖更新事項。
+
+---
+
+# 前輪狀態：實驗組回饋改為 30 秒（2026-10-28）
+
+使用者僅要求實驗組回饋載入後倒數 40→30 秒。修改 story_game.php 與 story_content.php 的 feedback 時限、app.js 的顯示預設值、consent 的秒數說明、相關 HTTP／UI 測試。維持成功取得內容後起算、重整續算、可提前繼續及到期自動換關；控制組無倒數。其餘時限、研究揭露規則及計分不變。保留原分支與所有既有未提交內容；無新增表、套件、費用或服務。
+
+TDD：HTTP 案例先觀察 40 !== 30 失敗，改後通過，並驗證實驗組兩故事初始 30、已過 20 秒剩 10、控制組 null。UI 驗證初始 0:30、將合成帳號起點調至 29 秒前後重整，自動換關。53 項安全範圍回歸全部通過（.screenshots/feedback30-regression.log，Node summary 53 passed／0 failed／0 skipped，exit0；沿用前輪 11 檔命令、TEST_PHP_BINARY=C:/xampp/php/php.exe）。兩 PHP lint、JS syntax、git diff --check 通過。原 Apache8081 .screenshots/feedback30-live.mjs 用合成帳號驗證 30 秒、續算、換關及控制組無倒數，無 pageerror、清理後不能登入。未呼叫真實 AI。
+
+兩輪各桌機1280×800／手機375×812：schedule-visual 的 score／detailed 與 instructions-visual 的說明頁均截圖讀回。證據 .screenshots/schedule-roundfeedback30-{1,2}-* 及 instructions-roundfeedback30-{1,2}-*。截圖工具在縮視窗後會保留捲動位置，已重置 window／overlay／modal 捲動後重拍回饋，避免把捲動狀態誤當版面裁切。兩輪八項自檢：層次（時計／分數）、留白（原版）、字體（30秒清楚）、配色（原色）、對齊（右上）、響應式（探針校準無溢出）、狀態（兩種回饋／控制／倒數）、動效（未新增）。Impeccable 人工fallback，未宣稱自動hook掃描。簡短QA以學生與施測者角度驗證計時及組別差異，無新敏感入口，未擴完整資安模擬。已交付產品說明：沿用伺服器起點比只改畫面可靠，每故事六關用滿少1分鐘。
+
+docs/two-stories.md 已更新最新時限與估算：實驗組每故事約36:25／36:52，整場含前後測安排約101:18，仍非硬上限。lab http://127.0.0.1:8081/ 工作區修改已生效；完整全套仍受既有建刪其他測試庫授權限制，未commit／merge／push。原流程圖舊時間與完整測試環境仍是既有待決項。套用 product-owner-teaching、test-driven-development、verification-before-completion、impeccable（人工）、emil-design-eng、playwright-cli，沿用已讀政策。
+
+---
+
+# 前輪狀態：訊問 1 分、作答 2 分、實驗組回饋 40 秒與休息 3 分（2026-10-27）
+
+使用者在兩次要求只討論後，最新明確核可實作：影片不可暫停，實驗組每關回饋閱讀 40 秒，中場休息 5→3 分鐘，其餘依推薦訊問 1 分＋作答 2 分。優先採用這份明確時限；已說明實驗組每故事六次回饋加 4 分，無法同時保證 35 分鐘。保留原分支 fix/xiaomai-ui-followup 及所有既有未提交工作。
+
+修改 story_game.php／story_content.php（訊問 60、combined 120、break 180、feedback 40）、story_ai.php（僅實驗組回饋取得成功後保存閱讀起點並回傳 remaining）、app.js（回饋倒數到期換關、重整續算、保留繼續按鈕；兩故事影片無暫停控制，播放後暫停事件自動恢復，正常速度；舊單故事模式不變）、review.css（回饋右上大時計／手機排版）、consent（新的時限說明）、相關測試。原研究揭露規則未變：實驗組第一故事只顯示分數，第二故事才有解析與 AI；控制組不加 40 秒，保留原完成提示。無新表、外部套件、服務、額外 AI 呼叫或計分更動。已有在途回合按原起點套用新短時限，可能到期，未批次改寫真實資料。
+
+TDD 證據：訊問第 61 秒原不能前進→60 秒通過；四種分派休息原 300 秒→180 秒通過；回饋原無 readingRemaining→實驗組 40 秒／控制組 null／重讀剩餘 20 秒通過；UI 原無 feedbackClock→40 秒與重整後自動換關通過；影片原 controls=true→controls=false 且 pause 後自動繼續通過。第一次安全回歸 52/53，唯一失敗是休息 UI 仍預期 5:00，依新契約改期待 3:00 後局部重測及全範圍重跑通過。最終 .screenshots/schedule-final-regression.log：53 passed／0 failed／0 skipped，exit 0。命令為前輪相同 11 檔安全範圍、TEST_PHP_BINARY=C:/xampp/php/php.exe，非全專案全套。三份 PHP lint、JS syntax、git diff --check 通過。
+
+原站 .screenshots/schedule-live.mjs 於 Apache 8081 僅用合成帳號驗證介紹／影片後／發言計時及新訊問 1 分、實驗組回饋 40 秒與到期第 2 關、控制組無回饋倒數、影片無暫停控制。無 pageerror，清理後登入失敗。測試不呼叫真實 AI，原站實驗組第一故事採分數回饋，隔離測試第二故事使用 fake AI。
+
+前端兩輪 .screenshots/schedule-visual.mjs 各 1280×800／375×812，第一輪發現時鐘太小、手機落在分數下面，已放大及定位右上；第二輪 score/detailed 四張均讀回合格。consent 使用 instructions-visual.mjs 做 schedule1／schedule2 兩輪各桌機手機並讀回。八項自評：層次（時計／分數／內容）、留白（沿用滿版回饋）、字體（時間放大）、配色（既有橘色時計）、對齊（手機右上）、響應式（探針校準後確認無溢出）、狀態（控制／實驗、得分／詳細、倒數／自動前進）、動效（未新增）。Impeccable 仍是人工 fallback，未宣稱自動 hooks 掃描通過。簡短 QA 從學生閱讀和研究施測規則驗證，屬 AI 多角度檢查；無新敏感入口，未另做完整資安模擬。教學已交付主方案與既有純前端備案比較、資料流、成本與限制。
+
+估算沿用已校準的 12 影片 duration：控制組每故事約 33:25／33:52；實驗組約 37:25／37:52。兩故事＋3 分休息＋前測 10／後測 10／實驗回饋 5 分：控制組約 95:18，實驗組約 103:18。可能因提前而縮短、AI／網路／完成提示而延長；不能保證瀏覽器關閉或斷線也準時。原 Picture1 舊故事 25 分與休息 5 分未重製；consent 已註明實際以新文字時限為準。詳 docs/two-stories.md 最新節。
+
+lab http://127.0.0.1:8081/ 直接讀工作區已生效，未另建站。全專案測試仍受先前建刪其他資料庫授權限制，故未 commit／merge／push。下一步是原流程圖更新及完整驗證環境的既有待決事項。已套用 product-owner-teaching、systematic-debugging、test-driven-development、impeccable（人工）、emil-design-eng、playwright-cli、verification-before-completion；沿用已讀政策。
+
+---
+
+# 前輪狀態：25 秒介紹、60 秒發言、影片後 10 秒與總時長（2026-10-27）
+
+使用者確認：六個人六種說法介紹固定 25 秒不能跳過、右上角倒數；每關六人發言 1 分鐘，六人全讀可提前，時間到自動進訊問；影片看完後 10 秒自動進同一關六人發言，保留前進按鈕。不是跳過整關。沿用既有分支 fix/xiaomai-ui-followup 與全部未提交修改，沒有覆寫他人工作。
+
+修改 api/src/story_game.php、story_content.php、assets/js/game/app.js：介紹伺服器門檻與停用按鈕；影片完成保存才起算、重送不重設；發言進入起算；兩者沿用伺服器剩餘時間跨重整。為既有已在新限時階段但沒有起點的回合補起點。時間到進下一階段，暫時連線失敗重試。發言與影片後時間顯示既有右上 timer，保留照片／翻面排版。檢查時發現已完成影片重整仍提示開始播放，已修成顯示已看完且不自動重播。無新資料表、套件、付費服務、動畫、計分或作答變更。
+
+TDD：介紹原 60 秒與可提前失敗→25 秒門檻通過；影片完成剩餘時間原 null 失敗→10 秒持久起點通過；瀏覽器原影片未完就顯示倒數失敗→完成後才啟動通過；重整錯誤要求重播失敗→已看完提示通過。新增兩個行為案例、修訂介紹案例；既有測試以 elapseIntroduction 僅調整合成帳號起點，不放寬流程斷言。覆蓋自動換頁、未讀完到期前進、全讀後提前前進、影片按鈕提前、重整續算及原權限／缺片門檻。產品理解檢查點已在回歸前交付：伺服器起點方案可靠且沿用既有儲存；只做前端倒數備案可被重整重設故不採用。
+
+驗證：TEST_PHP_BINARY=C:/xampp/php/php.exe；安全範圍 11 檔回歸命令沿用前輪，.screenshots/timing-regression.log Node summary 53 passed／0 failed／0 skipped，exit 0（不是全專案全套）。node --check app.js 與 git diff --check 通過。原 Apache 8081 .screenshots/timing-live.mjs 用合成學生驗證介紹到期→影片、影片已完倒數→發言、發言到期→訊問，無 pageerror，清理後確認不能登入。
+
+前端 .screenshots/timing-visual.mjs 兩輪各 1280×800／375×812，介紹、發言、影片後三頁均截圖讀回。最終 timing-round2-{intro,testimony,video}-{desktop,mobile}.png。八項自檢：層次（倒數與階段標籤）、留白（沿用緊湊卡片）、字體（時間可讀）、配色（既有計時色）、對齊（右上）、響應式（無橫向溢出）、狀態（停用／已完／可前進）、動效（未新增）。首輪已完影片仍要求播放的文案／按鈕問題已修；第二輪合格。溢出量測先用 4000px 探針校準：document.scrollWidth 因裁切無法測出探針，改用目標元素 bounding rect 後能正確分辨，不拿失準結果下結論。Impeccable 沿用缺引擎的人工檢查，未宣稱 hook 自動掃描通過。QA 以學生閱讀／施測者時間門檻角度檢查，屬 AI 檢查；未新增敏感輸入，不擴大資安模擬。
+
+總時長：.screenshots/measure-videos.mjs 讀取實際 JSON 指向的 12 支影片 video.duration，先以已知 1 秒 fixture 校準。蛋糕 480.226009 秒、飲料 507.3 秒。各階段用滿加休息約 2 小時 12 分 18 秒；另加前測 10、後測 10、實驗回饋 5 分約 2 小時 37 分 18 秒。不是硬上限：可提前的階段會縮短，影片暫停／各關回饋／網路會增加。詳 docs/two-stories.md 最新節；原 Picture1 每故事 25 分與舊 90–100 分文案不符合實際，沒有擅改原圖或縮短其他階段，已向使用者指出。
+
+lab 原網址 http://127.0.0.1:8081/ 直接讀工作區已生效。完整全套仍受 docs/open-questions.md 的建刪其他資料庫範圍限制，未 commit／merge／push、未另建站或宣稱正式發布。下一步為施測總時長／流程圖文字安排及完整驗證環境範圍決定。套用 systematic-debugging、product-owner-teaching、test-driven-development、impeccable（人工）、emil-design-eng、playwright-cli、verification-before-completion，沿用已讀技能與政策。
+
+---
+
+# 前輪狀態：修正六人發言混合翻面的大塊空洞（2026-10-27 後續）
+
+使用者截圖為1、2已展開文字、3仍是照片，第二排被最高照片推下，文字下方出現大洞。根因是前輪只縮短卡片自身，tgrid仍按整排最高卡決定下一排起點；這是前輪漏驗的混合狀態。使用者已授權局部排版修正，沿用方形照片／衣著取景與點卡翻面，不重跑設計批准。
+
+修改 app.js、review.css：用CSS Grid細列與原生ResizeObserver按卡片實際高度安排起點；桌機維持1／4、2／5、3／6固定三欄，各自緊接；手機單欄1至6，DOM順序不變。每次render清除舊觀察再註冊目前卡片；尺寸／字體引起高度變化會更新，僅值不同才寫style。欄數由CSS變數與斷點決定，避免舊inline欄位置產生隱含欄而誤判手機欄數。不新增套件／服務／費用，不改作答、已讀、計時、分數或原圖。備案硬拉卡片等高會把空白放回卡內，與使用者先前減空白要求相反，未採用。更新DESIGN與測試。保留既有未提交內容及fix/xiaomai-ui-followup分支。
+
+TDD：新增 tests/story-ui.test.mjs 的 mixed testimony案例，原版兩個短卡下方間距超過250px而失敗（getBoundingClientRect逐對比同欄上下卡）；修改後通過。開發中首次修法在手機留下舊欄位且順序不符，測試抓到後以CSS欄數與明確逐欄累計行起點修復。案例涵蓋展開兩卡、翻回、縮至375px時不重疊／順序不亂、六卡讀完可前進；沿用playwright真實PHP與合成帳號。`.screenshots/mixed-visual.mjs` 兩故事／兩尺寸混合翻面與圖解碼、圖片比例、操作驗證兩輪通過。
+
+兩輪各1280×800／375×812截圖均讀回，最終 `.screenshots/mixed-round2-desktop.png`、`mixed-round2-mobile.png`。八項兩輪合格：層次（人名／證詞清楚）、留白（各欄短卡下緊接下一人）、字體（原樣）、配色（原圖原色）、對齊（欄寬／上緣一致，非強迫每排同高）、響應式（單欄順序、無溢出且先以4000px探針校準）、狀態（已讀／照片／文字混合）、動效（未新增，保留原hover）。Impeccable沿用缺引擎人工fallback，未宣稱自動掃描通過。QA從學生混合閱讀、施測者確認讀取門檻未變兩角度驗證，屬AI檢查；未增加敏感入口，不新增完整資安模擬。產品理解與取捨已在回歸前說明。
+
+原Apache8081 `.screenshots/mixed-live.mjs` 驗證原站混合卡同欄間距與翻面正常、無pageerror，合成帳號清理後不能登入。app.js語法、git diff --check通過。安全範圍11檔回歸命令同前輪，TEST_PHP_BINARY=C:/xampp/php/php.exe；`.screenshots/mixed-regression.log` Node summary：51通過／0失敗／0跳過，exit0。全專案全套仍受既有建刪其他資料庫限制，因此未commit／merge／push；lab直接讀工作區已生效，未另建站。下一步仍是完整驗證環境範圍決定。已套用systematic-debugging、product-owner-teaching、test-driven-development、impeccable（人工）、emil-design-eng、playwright-cli、verification-before-completion，沿用using-superpowers。
+
+---
+
+# 前輪狀態：移除圖片提示與須知標題（2026-10-27 後續）
+
+使用者明確要求移除「點擊圖片可開啟完整尺寸，放大閱讀。」與「調查須知」。control/consent.html 刪除新舊說明區的圖片提示及雙故事須知h3，保留圖片連結與所有內文；tests/story-ui.test.mjs 的既有說明順序驗證改定位第一段說明，保留同意／前測操作測試。沒有新增功能、資料操作、費用或外部相依。直接刪除HTML文字比CSS隱藏更符合移除要求；圖片開啟原尺寸功能保持。保留所有既有差異與目前分支，不新增無關改動。
+
+兩輪 `.screenshots/instructions-visual.mjs` 通過，1280×800及375×812均讀回；最終 `.screenshots/instructions-roundremove-labels-2-desktop.png`、`instructions-roundremove-labels-2-mobile.png`。八項兩輪皆合格：層次（流程圖直接接內文）、留白（原卡片）、字體／配色（原樣）、對齊（同一內容邊線）、響應式（既有4000px探針校準後無溢出）、狀態（載入完及原操作）、動效（未新增）。學生／施測者角度核對只少指定文字、規則仍在；未新增完整資安模擬。原Apache8081的consent HTTP200且原始位元組與磁碟完全相同；git diff --check通過。純文字刪除依測試政策不新增瑣碎斷言或人工紅燈；沿用既有流程測試。
+
+安全範圍11檔回歸命令同前輪，TEST_PHP_BINARY=C:/xampp/php/php.exe；`.screenshots/remove-labels-regression.log` Node summary為50通過／0失敗／0跳過，實際退出碼0。既有全專案全套仍受建刪其他資料庫限制；未commit／merge／push，原lab直接提供工作區已生效。技能沿用 product-owner-teaching、impeccable（缺引擎人工fallback）、emil-design-eng、playwright-cli、verification-before-completion；測試與QA詳規沿用本對話已讀版本。
+
+---
+
+# 前輪狀態：六人發言卡露出更多衣著並收掉空白（2026-10-27 後續）
+
+使用者截圖指定六人發言卡，要求人物露出更多、看到穿著、減少空白。只修改 assets/css/game/review.css：tgrid照片由固定210px／手機170px改為正方形比例；取消closed區96px最小高度、隱藏空trait、減少姓名上方距離，卡片靠頂避免被相鄰長說詞拉高。桌機三欄／手機單欄保留，兩故事均套用；介紹卡與訊問圖未改。原圖未改，計分／作答／資料庫不變。更新DESIGN與本文件，保留既有未提交內容及fix/xiaomai-ui-followup分支。
+
+教學：像把狹長相框改成方框，增加上半身取景，把沒有文字的空白說明欄收掉。備案顯示完整直式原圖會讓卡片過長，故採方形取景；代價是比舊橫幅更高，需要向下捲動。沿用照片與CSS，無新相依／費用／外部服務；無新安全入口。已在回歸前交付產品效果、結構、替代方案與限制。
+
+驗證：一次性瀏覽器驗收 `.screenshots/testimony-framing.mjs`（不為純CSS新增永久瑣碎測試），先以原畫面證明方形取景檢查失敗，再修改CSS通過；最初腳本括號語法錯誤已先修正，不將該錯誤當產品紅燈。照片寬高來自getBoundingClientRect；兩故事桌機／手機皆實際載入、點開／翻回六卡，已讀後可進訊問。溢出方法先以4000px探針校準。兩輪各1280×800／375×812已讀回；最終 `.screenshots/framing-round2-desktop.png`、`framing-round2-mobile.png`。八項兩輪均合格：層次（人物主導）、留白（空區已收）、字體（原樣）、配色（原圖及原底色）、對齊（卡片頂對齊）、響應式（無溢出／手機單欄）、狀態（已讀／翻面／前進）、動效（原互動保留、未新增動畫）。Impeccable沿用已揭露的人工fallback，未宣稱hook掃描通過。
+
+QA：學生角度確認人物穿著可辨、文字區緊湊、翻面操作；施測者角度確認兩故事圖片與讀取門檻未改，屬AI多角度檢查。原Apache8081 `.screenshots/framing-live.mjs` 實測飲料正方形取景與點開／翻回通過，無pageerror；合成帳號清除後無法再登入。安全範圍11檔回歸命令同前輪，TEST_PHP_BINARY=C:/xampp/php/php.exe；`.screenshots/framing-regression.log` Node summary：50通過／0失敗／0跳過，exit0；git diff --check通過。未新增完整資安模擬。
+
+lab原網址已生效。整個專案全套仍受既有建刪其他資料庫限制，50項不是全專案全套，因此未commit／merge／push。下一步仍是既有完整驗證環境範圍決定。已套用 product-owner-teaching、test-driven-development（一次性紅綠驗收）、impeccable（人工）、emil-design-eng、playwright-cli（既有Playwright）、verification-before-completion，沿用using-superpowers。
+
+---
+
+# 前輪狀態：接上使用者提供的兩故事人物照片（2026-10-27 後續）
+
+使用者已將 cake／drink 照片放入 media，要求查看；沿用前輪補圖目的，直接接上明確對應的六位角色。cake 使用 media/cake/char_1.jpg 至 char_6.jpg；drink 使用 ref_zhou_yixing、ref_bai_erqing、ref_gu_sanyao、ref_han_sicheng、ref_xia_wuqiao、ref_tang_liuya.jpeg。已讀原圖尺寸並製作1200px檢視縮圖 `.screenshots/portrait-assets.jpg`，沒有改動原始素材。姓名依檔名對應，未逐一與影片核驗；林知遠、場景、物件不混入六位角色。
+
+實作：兩份 api/stories JSON 僅更新 characters[].image；app.js 的介紹沿用圖片欄位，新增共用 portraitStyle 讓證詞卡／訊問大圖／小頭像依故事取圖，預載亦改讀角色照片，避免飲料只在介紹正確、其他頁仍用蛋糕圖片。舊單故事仍用原有素材；不改計分、角色文字或學生作答。tests/story-harness.mjs 的隔離缺片副本只額外複製兩故事圖片，不複製影片；有片模式仍用一秒fixture。更新 story-ui 測試、PRODUCT、two-stories、tests/README。保留 fix/xiaomai-ui-followup@19c82b0 的所有既有差異，不移動／覆蓋使用者素材。
+
+產品理解檢查點在回歸前已交付：media照片→故事角色圖片地址→介紹／證詞／訊問；像讓同一人的名牌始終對上同一張照片。推薦直接讀使用者原路徑，備案複製到舊assets會多一套維護來源，因此未採用。原卡片裁切與角色互動沿用，沒有新套件／費用／外部服務或資料表；圖片檔名與故事內容是本機受控素材，未增加上傳或任意外部輸入入口。
+
+TDD：新增 each story loads 瀏覽器案例先因蛋糕仍指向assets而失敗，修正後通過；逐一比對兩故事角色圖片src、decode實際載入，以及每位證詞照片／訊問照片／頭像的computed backgroundImage與實際圖片載入。原飲料測試由姓名占位改驗指定照片；缺片阻擋／有片實播仍通過。安全範圍11檔回歸命令同前輪，TEST_PHP_BINARY=C:/xampp/php/php.exe，`.screenshots/portraits-regression.log` Node summary：50通過／0失敗／0跳過，實際exit 0。app.js語法、git diff --check通過。
+
+前端兩輪：`.screenshots/portraits-visual.mjs` 各1280×800／375×812，皆讀回；最終 `.screenshots/portraits-round2-desktop.png`、`portraits-round2-mobile.png`。八項兩輪均合格：層次（人物／姓名／職務）、留白（原卡片間距）、字體（原樣）、配色（原底色與使用者照片）、對齊（卡片一致）、響應式（手機兩欄無溢出，4000px探針先校準）、狀態（圖解碼、角色選取、倒數／前進）、動效（既有按鈕回饋、未新增動畫）。Impeccable沿用缺引擎的人工fallback，沒有宣稱hook掃描通過。QA以學生辨識人物、施測者防止故事串圖及缺片仍阻擋的角度實測，屬AI多角度檢查；未觸發新增完整資安模擬。
+
+原lab驗收：`.screenshots/portraits-live.mjs` 真實Apache8081登入→蛋糕六圖decode→跨故事→飲料六圖decode通過、無pageerror，合成帳號清理後不能再登入。app.js及12張圖均HTTP200，原始位元組SHA256與磁碟一致（Node arrayBuffer／已知abc校準）。原網址已生效，未另建站。剩餘限制：全專案全套仍受既有禁止建刪其他資料庫限制，50項不等於全套；因此未commit／merge／push。下一步仍是既有完整測試環境範圍決定；人物照片缺少已解除。已套用 product-owner-teaching、test-driven-development、impeccable（人工）、emil-design-eng、playwright-cli（既有Playwright）、verification-before-completion，沿用using-superpowers。
+
+---
+
+# 前輪狀態：調查須知移至流程圖下（2026-10-27 後續）
+
+使用者要求把截圖中的調查須知放到 Picture1 下方，原頁不再需要，並詢問是否有飲料人物照。已將完整計分／三步操作／自動保存說明移到 control/consent.html，取代原雙故事簡短說明，保留操作列圖；開場人物介紹倒數到時或點「開始調查」直接進第一關影片。舊 step 2 或離線到期的進度重新載入時接到遊戲。只改雙故事，舊單故事須知維持。改 assets/js/game/app.js、control/consent.html、tests/story-ui.test.mjs、PRODUCT.md、docs/two-stories.md 及本文件；保留 fix/xiaomai-ui-followup@19c82b0 上全部既有未提交內容。
+
+人物素材答覆：搜尋 assets 與 media 的圖片及飲料／角色檔名，未找到可確認為飲料六人的獨立照片；已有 media/drink 六支影片。未擅自擷取、生成或套蛋糕照片；建議後續從影片擷取並核對姓名，本輪不宣稱照片已補齊。
+
+產品理解已於回歸前交付：像把分散講義整併成一份，學生在前測前讀完整規則，介紹後直接開始。主方案沿用既有伺服器進度契約，前端依序完成 step 2／3；備案改資料表／流程版本成本及遷移風險較大，未採用。沒有新依賴、外部服務、費用、資料遷移或真實學生資料修改。計分與作答時間保持。手動提前開始介紹仍可用，影片觀看門檻不變。
+
+TDD：介紹直接進影片測試先超時失敗、修正後通過；須知搬至流程圖下的測試先找不到標題失敗、修改後通過，仍驗證同意勾選才能進前測。更新原飲料手動開始與換故事按鈕期待。`.screenshots/instructions-visual.mjs` 驗證舊 step 2 恢復／重整與新說明頁，兩輪通過。QA 以學生（閱讀／手動與自動前進／重整）與施測者（規則完整、缺片仍阻擋）角度實測，屬 AI 多角度審查；未觸發登入／權限／個資等新變更，未新增完整資安模擬。合成帳號測後清除並確認登入失敗。
+
+兩輪各1280×800／375×812截圖已讀回，最終 `.screenshots/instructions-round2-desktop.png`、`instructions-round2-mobile.png`。第一輪八項：層次／字體／配色受載入遮罩影響不可判定，留白／對齊被固定頁首遮住流程圖，響應式測量通過，狀態尚在載入，動效未新增；修正檢查工具等待既有 preloader 隱藏並避開固定頁首。第二輪八項：層次（圖→須知→步驟）清楚；留白沿原卡片；字體沿既有同意頁；配色原白底深字／原圖；對齊一致；響應式無水平溢出（先用4000px探針校準）；狀態同意／按鈕／圖片開啟可用；動效沿原按鈕，未寫動畫。手機圖較小仍可點開原尺寸。Impeccable 引擎缺失沿用已揭露人工檢查，不宣稱自動掃描通過。
+
+安全範圍11檔回歸命令同前輪，TEST_PHP_BINARY=C:/xampp/php/php.exe，`.screenshots/instructions-regression.log`：Node summary 49通過／0失敗／0跳過，實際退出碼0。app.js語法與git diff --check通過。原lab `.screenshots/instructions-live.mjs` 通過倒數直接進影片與既有跨故事流程，無pageerror；首次因舊檢查仍等待已移除須知標題失敗，更新期待後通過。Node原始位元組SHA256比較（已知abc校準）確認原Apache8081提供的consent/app.js與磁碟一致，HTTP200。
+
+剩餘限制：全專案全套仍受既有建刪其他資料庫限制；49項不是全專案全套，因此未commit／merge／push。lab直接讀工作區，原網址已生效；沒有另建站或正式發布宣稱。下一步為飲料人物照片來源／對應，以及既有完整測試環境範圍決定。已套用 product-owner-teaching、test-driven-development、impeccable（人工fallback）、emil-design-eng、playwright-cli（既有Playwright測試）、verification-before-completion，沿用using-superpowers。
+
+---
+
+# 前輪狀態：飲料故事人物圖片原因確認（2026-10-27 後續）
+
+使用者提供「周一興／白二晴／顧三曜」等姓名卡截圖，要求查明偶爾無圖片。已確認該截圖是飲料故事的既有缺圖替代畫面：api/stories/drink-v2.json 六個 characters[].image 均為 null；story_content.php 原樣提供空圖片欄位，app.js:663 在缺圖時直接產生姓名 div，沒有建立 img 或發出人物照片下載。蛋糕 cake-20260929.json 六個角色都有 assets/img/game/char_1.jpg 至 char_6.jpg，逐項 fs.existsSync 確認檔案存在。因此此截圖的原因是飲料人物照片尚未設定，不是已證實的隨機載入失敗；兩故事切換可以解釋有時有圖的觀感，其他頁面偶發失敗未經本輪證實。
+
+證據：Node 逐角色輸出 name/image/exists，比對有圖蛋糕作為對照；既有真實 Chrome 測試 `TEST_PHP_BINARY=C:/xampp/php/php.exe node --test --test-name-pattern='drink uses its own characters' tests/story-ui.test.mjs` 1 通過／0 失敗，驗證飲料姓名、未誤用蛋糕照片及前進保存。沿用 docs/two-stories.md 的缺照片使用姓名決策。本輪未修改產品程式或 UI，無需新增畫面兩輪或全套回歸，未 commit／push／部署。
+
+產品理解：角色資料的 image 是照片地址，像名冊中的照片欄；目前飲料名冊照片欄空白，所以畫面顯示姓名。推薦補上與飲料影片角色一致的正式圖片並指定對應；備案維持姓名卡，可使用但識別體驗較弱。未擅自生成或套用蛋糕人物，沒有新增費用或改動學生資料。下一步需要確認飲料人物照片素材來源與人物對應；本輪是原因調查，不宣稱照片已補齊。已套用 systematic-debugging、product-owner-teaching、verification-before-completion，沿用 using-superpowers 與 Playwright 驗證方式。
+
+---
+
+# 前輪狀態：小麥圖片、關卡說明與介紹計時（2026-10-27）
+
+本輪授權：實驗說明加入 Picture1.png 流程圖，說明下接 messageImage_1793005848507.jpg 操作列；兩故事選證據頁更新兩句操作說明，六關頁首依證詞／假設／推論／推論／因果／論點更新；一分鐘六人介紹計時移至右上角並放大。沿用 fix/xiaomai-ui-followup@19c82b0，保留所有既有未提交內容，沒有更動 .env、資料庫結構、真實學生作答或影片。
+
+修改：control/consent.html 的雙故事說明放入原始圖片，新增 assets/img/game/experiment-timeline.png、experiment-navigation.jpg，可點開原圖閱讀；assets/js/game/app.js 共用六關文案與分類操作提示，介紹倒數沿用 topbar 計時元件；assets/css/game/review.css 讓單獨計時框在手機也靠右；tests/story-ui.test.mjs 增加介紹計時位置與字級驗證。局部決定：修正原訊息「請點思考」為「請思考」，保留其他既有提示、分類標籤、計分與流程；圖片是內容素材，沒有把圖中文字當作額外操作授權。原先缺少 STATUS.md，不另建專案骨架。
+
+產品理解：學生先看完整流程圖，再讀說明及關卡操作圖；兩故事共用畫面依關號顯示任務，原倒數只改顯示位置。像換講義與移動教室的鐘；資料仍沿原有伺服器進度保存。主方案直接使用提供的圖片及既有計時元件，備案重畫流程圖／另造計時器較易偏離原意或分歧，故未採用。沒有新相依、費用或安全入口。手機原圖縮小後字較小，提供原尺寸開啟；維持原兩欄人物卡，可垂直捲動。
+
+驗證：介紹倒數測試先失敗（topbar 中找不到 introClock），修改後通過，仍驗證到時自動進入調查須知。Playwright／Chrome 經真實 PHP／資料庫與合成帳號，`.screenshots/oct27-visual.mjs` 兩輪均通過：圖片載入及點開原圖、兩故事六關說明、分類點選、右上角計時與無 pageerror。橫向溢出檢查先以 4000px 探針確認方法能測出，再驗證畫面。兩輪各 1280×800／375×812 截圖已讀回；最終 `.screenshots/oct27-round2-desktop.png`、`oct27-round2-mobile.png`。八項自評兩輪皆合格：層次（頁首計時醒目）、留白（原版面）、字體（沿用且計時放大）、配色（既有橘色計時）、對齊（右側／人物卡）、響應式（無水平溢出）、狀態（計時／前進／圖片連結）、動效（保留原按鈕回饋，未寫動畫）。Impeccable 引擎缺少，context 未執行；依 PRODUCT／DESIGN／craft-floor 人工檢查，未宣稱自動 hook 通過，無忽略規則。
+
+教學檢查點在回歸前已交付。沿用安全範圍 11 檔回歸：`TEST_PHP_BINARY=C:/xampp/php/php.exe node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs tests/immersion.test.mjs tests/story-content.test.mjs tests/stories.test.mjs tests/story-game.test.mjs tests/story-http.test.mjs tests/story-ui.test.mjs`，49 通過／0 失敗／0 跳過，exit 0，完整 `.screenshots/oct27-regression.log`。數字取自 Node 測試 summary，直接保留程序退出碼。app.js 語法及 git diff --check 通過。沒有獨立 build 流程。
+
+QA：學生角度實測圖片開啟、介紹倒數、兩故事分類；施測者角度核對六關要求與既有計時行為，屬 AI 多角度檢查。只修改內容／呈現，未觸發新增完整資安模擬。原 lab `http://127.0.0.1:8081/` 的 `.screenshots/live-flow.mjs` 通過倒數及既有跨故事流程；合成帳號清理後確認不能登入。五個本輪產品檔案 HTTP 200 且原始位元組 SHA256 與磁碟一致（Node arrayBuffer，先以已知 abc SHA256 校準）。最初 PowerShell 將 HTTP 文字轉碼後比較不一致，未當作站點不同的證據；改讀原始位元組後一致。
+
+剩餘限制：整個專案全套仍涉及既有禁止的建刪其他資料庫操作，49 項不是全專案全套；沿用 docs/open-questions.md 的既有阻塞，因此未 commit／merge／push。lab 直接提供工作區，這次修改已在原網址生效，沒有另建站或宣稱正式發布完成。真實 AI 品質及外部問卷送出不屬本輪驗證。下一步：處理完整隔離測試環境範圍後再依既定流程全測／合併／推送。
+
+已套用 using-superpowers、product-owner-teaching、test-driven-development、impeccable（人工 fallback）、emil-design-eng、playwright-cli（沿用現有 Playwright 測試工具）、verification-before-completion。
+
+---
+
+# 前輪狀態：兩項缺片測試已修復（2026-10-18 後續）
+
+使用者要求修好前輪兩項既有缺片測試。沿用 `fix/xiaomai-ui-followup@19c82b0` 與所有既有未提交內容。本輪只修改 `tests/story-harness.mjs`、`tests/story-http.test.mjs`、`tests/story-ui.test.mjs` 及測試／交接文件；沒有改產品程式、學生介面、環境設定或lab影片。
+
+根因與修法：原測試直接使用工作區 media，飲料影片補齊後不再符合缺片前提。先重現 HTTP 預期409實得200、UI等待素材待補30秒逾時。測試工具新增 `media:'missing'/'present'` 選項，建立隨機命名的獨立暫存站點，複製程式及畫面資源但不複製media／.env；資料庫設定僅傳入子程序環境、AI固定本機假服務。缺片案例確認公開狀態available=false、影片網址404、完成觀看409且狀態未前進；原本越權斷言均保留。UI缺片案例確認待補／不可前進／重整保留。另以既有一秒影片fixture在副本驗證真實Chrome播放到ended、伺服器保存completed，再前進testimony，沒有假造ended或放寬斷言。
+
+產品理解檢查點：像另外搭練習教室測試「教材缺少」與「教材齊備」，與lab現有影片脫鉤；資料流仍是真實Chrome→獨立PHP→既有合成學生紀錄。推薦真實副本而非只mock回應，代價是複製少量站點資源，但能驗證PHP實際檔案檢查與畫面一致。沒有新增套件、外部服務、付費或資料表。測試結束先清除自己的合成學生／分派序列、確認不能再登入，再停止服務並移除自己的暫存副本；刪除前確認實際路徑位於預期temp父目錄且符合自建名稱前綴，刪除後assert不存在。
+
+驗證：兩個原失敗案例各自RED→GREEN；有片實播對照通過。`TEST_PHP_BINARY=C:/xampp/php/php.exe`，既有Playwright 1.63.0／Chrome。命令 `node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs tests/immersion.test.mjs tests/story-content.test.mjs tests/stories.test.mjs tests/story-game.test.mjs tests/story-http.test.mjs tests/story-ui.test.mjs`：**47通過／0失敗／0跳過，exit 0**，`.screenshots/media-fixture-regression.log`。3個測試JS語法與`git diff --check`通過。以PowerShell Get-FileHash SHA256保存六支飲料影片並逐路徑重算比較，全部相同（基準`.screenshots/media-test-fix-before.json`）。廣回歸後無可執行程式修改，只有文件更新；測試工具註解曾在測試期間澄清措辭，未改行為。
+
+QA：學生角度確認缺片不誤放行、有片可實播與前進；維護者角度確認不受lab補片影響、清理自己的副本和合成帳號。這是AI多角度檢查。只修測試工具，沒有新的產品敏感變更或前端產出；沿用前輪仍有效的產品安全與畫面證據，不宣稱新增UI兩輪或完整資安模擬。
+
+剩餘限制：本輪請求的兩項測試缺陷已解決，下方44/46結果是歷史紀錄。整個專案全套仍包含先前禁止的建刪其他資料庫操作，本輪未擴大授權；47項是11檔安全回歸，不是全專案全套。因此未commit／merge／push，產品原站沒有需重新部署的程式修改。下一步僅剩完整隔離測試環境範圍決定，見`docs/open-questions.md`。已套用product-owner-teaching、systematic-debugging、test-driven-development、verification-before-completion；沿用本對話已讀測試與QA政策。
+
+---
+
+# 前輪狀態：小麥流程調整（2026-10-18，lab 工作區已生效，未合併／推送）
+
+最終回歸結果：上述安全範圍11個檔共46項，44通過／2既有缺片前提失敗／0跳過，exit 1，完整輸出 `.screenshots/flow-final-regression.log`；之後只有交接文件更新，沒有產品程式修改。不能合併或推送。
+
+使用者貼出小麥要求並確認 lab 就是目前這台 Windows／XAMPP；一分鐘是「故事開頭六人角色介紹」，不是每關六人發言。實驗說明 → 前測 → 第一故事 → 強制休息五分鐘 → 第二故事 → 後測。沿用 `fix/xiaomai-ui-followup@19c82b0`，保留原本所有未提交內容，沒有 stash/reset、資料遷移或更改 `.env`。
+
+本輪修改：`story_ai.php` 修正第一故事實驗組原本連分數也隱藏的問題，現在只提供本關與累積分類分數、不揭露解析、不呼叫 AI，第二故事維持原回饋。`story_game.php`／`api.js`／`app.js` 為每故事開頭介紹保存一分鐘計時，首次進入畫面才開始，重整續算、到時自動進入調查須知；沿用既有 events 表，無新增資料表。介紹原手動前進按鈕保留，五分鐘休息才是強制不可提前；休息沿用已存在的伺服器門檻，本輪驗證四種分派均受限。`ck_survey.php` 接上雙故事帳號，後測檢查兩故事完成、學生確認後開放成果；consent 進前測、第二故事完成進後測。維護說明見 `docs/two-stories.md` 最新節。
+
+產品理解檢查點：學生能按最新順序完成研究，第一故事得分與第二故事 AI 回饋分開；瀏覽器向 PHP 保存進度，再讀 MySQL 的既有作答與時間紀錄。伺服器計時像施測老師的碼表，重整不重算；備案只在瀏覽器計時較少改動，但不能可靠保存，所以未採用。沿用問卷網址與資料表，無新供應商／費用，沒有改真實學生答案；第一故事少了 AI 請求但未量測省下費用。問卷送出仍由學生自我確認，不代表平台驗證收件；人工前進介紹仍可使用。舊單故事流程沒有新增雙故事倒數。
+
+TDD：HTTP 第一故事得分先得到 undefined→修正後通過；介紹持久計時與到期轉頁先失敗→修正通過；真實 Chrome 第一故事得分視窗、介紹倒數自動跳頁、consent 前測路由、第二故事後測路由皆先紅後綠。問卷雙故事入口先 HTTP 500→修正後 200 且後測提前訪問 409。`TEST_PHP_BINARY=C:/xampp/php/php.exe`（8.0.30），鎖檔安裝 `tests/node_modules` Playwright 1.63.0（原路徑 PHP 8.2 已不存在）；沒有改鎖檔。五項本輪瀏覽器流程回歸 5/5 通過，`.screenshots/flow-focused-ui.log`；四種分派休息／問卷／登入私有檔保護／回饋／訊問選定 HTTP 5/5 通過。PHP 三個異動檔語法、JS 兩個異動檔語法與 `git diff --check` 通過。
+
+較廣回歸命令沿用下方 11 檔安全範圍，初次 43 通過／2 失敗（45 項），記錄 `.screenshots/current-regression.log`；新增四分派案例後最終重跑記錄 `.screenshots/flow-final-regression.log`。兩項既有失敗是 HTTP `a student cannot write another student or future story, read their feedback, or skip missing media`（最後缺片斷言期待409但得到200）與 UI `drink uses its own characters, saves onboarding and clearly blocks a missing video`（等待缺片提示逾時）。目前 media/drink 六支影片已存在，這兩項測試的缺片前提過時；未刪除斷言、搬走真實影片或默默改成通過。整個專案全套仍受既有不得建刪其他資料庫限制，沒有執行，不能將局部回歸說成全套。
+
+前端兩輪：`.screenshots/flow-visual.mjs` 以實際 PHP／MySQL／Chrome 產生每輪1280×800與375×812各一張，均讀回。最終 `.screenshots/flow-round2-desktop.png`、`flow-round2-mobile.png`。八項自評兩輪皆沿用原視覺：層次（介紹標題／次要倒數清楚）、留白（原卡片節奏）、字體（既有Work Sans與中文字體）、配色（灰白與橘）、對齊（卡片統一邊線）、響應式（手機原兩欄須垂直捲動、無元素超出視窗）、狀態（計時／前進／回饋／休息禁用／錯誤重試）、動效（原按鈕回饋、未新增動畫）。溢出測量先用4000px探針校準；document scrollWidth方法因既有裁切未能測出探針，已改用元素邊界並校準成功，沒有拿錯誤方法宣稱通過。Impeccable 引擎仍缺少，已揭露並讀PRODUCT／DESIGN人工檢查，未宣稱自動hook掃描通過。
+
+QA與lab驗收：學生角度實測倒數／得分／換故事，施測者角度核對四分派都強制休息、第一故事無AI請求；屬AI角度審查，無真人專家認證。使用合成帳號與測試分派序列，測試AI用本機假服務、測試問卷網址預設清空避免送到真實平台。原站 Apache 的 `http://127.0.0.1:8081/` DocumentRoot 是本工作區，讀取 consent/app.js/api.js 的 HTTP 200 與SHA256皆符合磁碟。`.screenshots/live-flow.mjs` 在原站實際登入→介紹倒數自動跳頁→合成第一故事得分→完成故事→休息按鈕禁用→調整僅合成回合時間→進第二故事，通過且無pageerror；不呼叫真實AI。測後刪除自己合成帳號及分派序列，重新登入確認失敗。沒有另建站、變更Apache設定或正式資料。
+
+剩餘限制／下一步：先把兩項缺片測試改成使用隔離的缺片fixture（不要移動現有影片），並處理完整測試環境的建刪資料庫授權限制，再依規則全測／合併main／重測／push。目前因既有失敗與全測限制，沒有commit／merge／push，不宣稱正式施測驗收完成；lab工作區檔案已被原站直接提供。真實AI品質、實際問卷送出及全部素材內容未驗證。技能：using-superpowers、product-owner-teaching、test-driven-development、impeccable（人工fallback）、emil-design-eng、playwright-cli、verification-before-completion。
+
+---
+
+# 前輪狀態：飲料配分優先次序已核可（2026-10-03 後續）
+
+使用者對「逐人判定標籤優先，缺漏才用附錄，矛盾說明保留待老師修訂」明確回答「好」。已將此決議套用並記錄於 `api/stories/drink-v2.json` 的 scoringDecision／reviewStatus／reviewIssues；第二關韓四城有瑕疵、夏五喬合理、唐六雅合理，第三關顧三曜有瑕疵。原暫定分類值符合這次核可，沒有重寫既有分數；此次將核可狀態定案並補上逐人測試斷言。下方舊交接提到的「等待判準回覆」已解除。
+
+產品理解：分類標籤就是計分答案；判定說明是解釋文字。按核可標籤計分可以維持確定規則，保留矛盾說明供老師修订可避免擅改原稿；備案是等老師重寫整份說明再定案，但使用者本輪已選前者。限制是說明文字仍可能與標籤不一致，老師修訂前不可宣稱教材完全一致。沒有新的流程、畫面、資料結構、外部服務或成本；不涉及搬動真實學生資料。
+
+更新 `docs/open-questions.md`、`docs/two-stories.md`、PRODUCT 與原 spec／plan ledger，使配分不再列為待決。保留原分支 `fix/xiaomai-ui-followup@19c82b0` 與全部既有未提交內容；`.env` 及正式分派停用狀態未改。
+
+驗證：先跑 `tests/story-content.test.mjs` 3/3 通過，逐人斷言涵蓋上述四人。`.screenshots/dual-story/audit.mjs` 比對來源表格與 JSON 的 36 則發言、判定說明、追問文字均一致；來源差異共 4 項、待決配分 0 項、唐六雅說明待修訂仍有註記。本輪只是核可資料及文件更新，沒有新行為，不為 metadata 製造人工紅燈。其後重跑前輪同一安全範圍的 11 個測試檔，**40 通過、0 失敗、0 跳過，exit 0**，完整命令同下方交接／維護說明，結果在 `.screenshots/dual-story/scoring-approved-regression.log`。`git diff --check` 通過；沿用仍有效的前端及安全檢查證據，未宣稱新增畫面或新安全模擬。
+
+剩餘限制：飲料影片與照片仍待補、真實 AI 品質未驗證；整個專案全套仍受不得建刪其他資料庫的限制，故未提交／合併／推送／部署。原試玩站未同步。下一步是補素材與處理完整驗證環境，配分不需重複詢問使用者。已套用 product-owner-teaching、test-driven-development、verification-before-completion，沿用已讀技能與政策。
+
+---
+
+# 前輪狀態：蛋糕／第9杯飲料共用流程（2026-10-03，工作區實作，未啟用／未發布）
+
+目標與核可：使用者要求以蛋糕六關框架製作飲料故事；新學生首次登入依 `1-1 → 1-2 → 2-1 → 2-2` 循環，1 控制／2 實驗，-1 蛋糕先／-2 飲料先，重登固定。問卷由老師處理。已確認第五關採逐人判定及附錄：白二晴、夏五喬合理，共兩則。缺飲料素材維持影片框架、顯示待補並阻擋前進，不能替換成文字閱讀。第二關判準矛盾、第三關顧三曜缺標籤仍待回覆，詳細見 `docs/open-questions.md`；不可推定第五關的核可涵蓋其他差異。
+
+工作區／來源：`fix/xiaomai-ui-followup@19c82b0`。保留原有 DESIGN、HANDOFF、app.js、review.css、immersion 測試、.claude 與影片未提交內容；修改前 app／CSS 備份在 `.screenshots/dual-story/`。未 stash／reset、未建立新分支、未提交／合併／推送。原 `http://127.0.0.1:18079` 試玩站未同步本輪雙故事內容。新測試使用獨立 PHP 連接埠，已關閉。
+
+實作：新增 `api/src/stories.php` 分派、`story_content.php` 公開欄位白名單、`story_game.php` 遊戲保存與流程、`story_ai.php` 共用訊問操弄及按故事回饋，公開入口 `api/public/story.php`。既有 login/state/results 為新帳號接到新流程；旧學生留在舊 API，防止新帳號反走舊 API 建回合。`api/stories/` 保存版本固定的蛋糕及飲料內容，Apache 與測試 router 都禁止公開下載。`api/migrations/2026_10_stories.sql`、`api/tools/install_stories.php` 僅在既有 `idealightsdg_cake` 新增六張表，未建刪資料庫或遷移既有學生。
+
+共用前端：依 runId 區分本機備份，角色／影片／證詞依故事載入。第一故事完成後以「開始下一個故事」接續；第二故事完成後提示老師問卷，學生自行確認才解鎖各故事成果與真相。問卷確認不驗證外部繳交狀態。飲料缺照片用姓名識別、缺影片顯示待補；保留既有分類上／判斷下排版。consent 說明支援兩故事；最後一關按鈕改「完成這個故事」。
+
+產品理解檢查點：一位學生的研究安排像資料夾封面，蛋糕與飲料各有一本獨立作答本（run_id）。瀏覽器送出 → 登入身分及回合核對 → 保存該故事資料 → 重新載入原進度。最新草稿與凍結答案存在 work，對話存在 messages，歷次草稿／影片／階段／提交時間追加在 events；相同請求重送不重複累計。主方案新增表保留歷史資料；備案修改所有舊表較少並存程式，但遷移風險較高。代價是舊匯出工具不會自動包含新表，尚無新教師匯出介面。沒有新增套件或外部供應商；兩故事增加使用 AI 的機會，實際費用及真實 AI 品質未量測。白話架構與維護說明見 `docs/two-stories.md`。
+
+計畫／決策：`docs/superpowers/specs/2026-10-03-two-stories-design.md`、`docs/superpowers/plans/2026-10-03-two-stories.md`。局部決定包含新增表保留舊資料、伺服器 JSON 固定版本、沿用現有非 main 工作分支保留使用者畫面、以獨立測試分派序列避免消耗正式序號、來源矛盾維持草稿及停用；代價與理由已記 ledger。預設 `STORY_STUDY_ENABLED=0`，實際 `.env` 未修改。安裝新表不會自動啟用新學生研究。
+
+TDD／驗證：每個新行為紅→綠，包括四種分配、重登固定、影片門檻／計時、草稿版本及凍結、分故事計分、兩組回饋／訊問共享、故事切換／成果、缺素材及角色畫面。獨立審查發現研究事件缺口，新增 events 後 `research events preserve draft revisions…` RED→GREEN；同時補足真實多 PHP 程序同時分派／同時開始第二故事；第六關錯誤後測文字以真實瀏覽器 RED→GREEN 修復。追加修復過關重試、過去關卡遲到草稿歸檔、提前進成果頁返回 409 提示而非通用 500。審查無未處理的已確認重大缺陷；並不代表全專案無缺陷。
+
+最終安全範圍回歸：`node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs tests/immersion.test.mjs tests/story-content.test.mjs tests/stories.test.mjs tests/story-game.test.mjs tests/story-http.test.mjs tests/story-ui.test.mjs` → **40 通過、0 失敗、0 跳過，exit 0**，測試名稱與結果見 `.screenshots/dual-story/final-regression.log`。沿用 PHP 8.2：`C:/Users/User/AppData/Local/Temp/idealight-windows-bb789a74/php82/php.exe`；Playwright 模組 `C:/Users/User/AppData/Local/Temp/idealight-windows-bb789a74/site/tests/node_modules/playwright/index.mjs`，環境變數及重跑指令見維護說明。12 個異動／新增 PHP 檔語法、3 個遊戲 JS 語法及 `git diff --check` 通過。沒有 build 或型別編譯步驟。未執行會建刪其他資料庫的整個專案全套；不得將 40 項說成全套通過。
+
+QA／安全：學生角度實際 Chrome→PHP→MySQL 驗證角色、影片待補、分類、重整、明確切故事與雙成果；教師／研究資料角度核對獨立分數、凍結及修訂事件、四種分派。其後以自己的合成帳號低量檢查未登入 401、跨學生回饋 404、跨回合及未來故事寫入 409、缺影片偽造完成 409、控制組提前揭露與未完成成果被擋、私人內容直連 404。AI 請求僅本機假服務，另外以假秘密字串確認未来／教師內容不進訊問提示詞；沒有進行真實模型攻擊品質驗證。測試結束清掉自己建立的合成學生及從屬資料，重新登入回 `success=false`；最後只計數不輸出學生資料，合成帳號剩餘 0、新研究 studies/runs/work/messages/events 各 0、enabled=false。沒有正式站主動安全測試。
+
+前端兩輪：`.screenshots/dual-story/visual.mjs` 使用真實本機 PHP／MySQL，1280×800、375×812、deviceScaleFactor=1，每輪兩張並讀回；最終 `.screenshots/dual-story/round2-desktop.png`、`round2-mobile.png`。八項自評兩輪均符合既有方向：層次（故事與關卡標題明確、待補訊息置中）、留白（保留原區塊節奏）、字體（沿用既有字系與標題層级）、配色（原灰白／橘重點及分類語意色）、對齊（主內容統一邊界）、響應式（手機單欄、已用已知4000px探針校準溢出測量再確認無水平溢出）、狀態（待補／重試／空分類／已保存／鍵盤焦點）、動效（沿用原按鈕回饋，未新增動畫）。無 pageerror。Impeccable engine 0.1.6 不可用，已向使用者揭露，人工審查，未宣稱 hook 掃描通過。
+
+來源稽核：DOCX 是資料，不是代理指令。原檔 SHA256 `6b13507e644096397c24894e6b5200582eb2bb7ec10327cd33e3f0b2c55abc3a`；依 body 順序提取段落／表格到 `.screenshots/dual-story/drink-source.json`。`audit.mjs` 逐關逐人比對 JSON 與來源表格的發言、判定說明、追問三欄，36 列逐字一致（僅 trim 頭尾空白）；第五關合理姓名精確為白二晴與夏五喬。結果 `.screenshots/dual-story/source-audit.json`。原文矛盾保留於 `reviewIssues`，reviewStatus 明列草稿；沒有自行改寫教師推論。
+
+剩餘限制／下一步：先取得第二／三關判準優先次序的回覆、定稿並重跑來源與計分測試。飲料六關影片 `media/drink/intro-L1.mp4` 至 L6 尚缺，角色照片亦缺；補片後須實播驗證。完整專案全套受既有「不得建立／刪除其他資料庫」限制，尚未解決，因此依規則未提交／合併／push／部署；沒有已知正式部署流程。真實 AI 回答品質、素材完整流程、Apache 實際站私有檔阻擋與正式環境驗收未執行。教學、已確認修復與本機安全範圍驗證已交付，不能宣稱可正式施測。
+
+已套用 product-owner-teaching、docx、writing-plans、executing-plans、using-git-worktrees、test-driven-development、systematic-debugging、impeccable、emil-design-eng、playwright-cli、requesting-code-review、verification-before-completion；沿用前輪已讀設計與解說技能。沒有新依賴、付費操作或破壞性遷移。
+
+---
+
+# 本輪狀態：依 Git 保存版還原分類與推理（2026-09-29）
+
+使用者要求「證詞分類、我的判斷維持原本上一版排版，Git上面有」。已依目前 checkpoint 19c82b0 恢復上方整區分類／下方選人與理由並排，並恢復該版分類說明、頁首任務與前往推理按鈕。這是 Git 保存版，不是前輪未提交的左右兩大欄或四格。保留章節名稱、人物原話、加寬訊問對話及其他素材。僅從 git show 抽出相關函式／導覽，未整檔 checkout；比較確認 viewEvidence 到 viewRanking 前的函式文字與 19c82b0 完全相同。review.css 移除 workspace 相關覆寫；DESIGN.md 同步。分支 fix/xiaomai-ui-followup，修改仍未提交。
+
+產品理解：回到學生先完整分類、再往下選人寫理由的順序；相比前輪四格，較接近使用者要保留的流程，代價是頁面較長。資料仍經原草稿服務存回既有資料庫，沒有資料格式、權限、題目或費用改動；沒有新增套件。先備份 `.screenshots/immersion/restore-layout.app.js.before`／`restore-layout.review.css.before`，只還原本輪範圍。
+
+驗證：調整既有 immersion 流程測試，先觀察「Judgment follows the complete classification area, including unclassified cards」失敗，再還原後2/2通過；保留分類、前往推理、選人、理由重整還原與未完成不能送出驗證。局部回歸 `node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs tests/immersion.test.mjs`：15通過、0失敗、0跳過、exit 0；沿用既有 PLAYWRIGHT_MODULE／TEST_PHP_BINARY。app.js 語法、git diff --check 通過。
+
+桌機1280×800／手機375×812兩輪均執行並讀回截圖，第一輪工作區、第二輪原試玩站：`.screenshots/immersion/restore-layout-round2-desktop.png`、`restore-layout-round2-mobile.png`。驗收脚本 restore-layout.mjs 以公開劇本與合成狀態實際操作分類／移回、前往判斷、保存與重整；以4000px探針校準無水平溢出檢查。八項自評：層次（分類先、推理後）、留白（恢復原間距）、字體（既有字系與標題）、配色（保留合理綠／破綻玫紅）、對齊（分類全寬）、響應式（手機單欄）、狀態（空區／已分類／選人／未完成送出正常）、動效（沿用原互動，無新增）兩輪通過。Impeccable 引擎仍不可用，人工依既有規範檢視，未宣稱自動掃描通過。
+
+學生／施測者簡短QA：restore-live.mjs 用原本受限的合成帳號流程，兩組各自走真實Chrome→PHP→idealightsdg_cake，分類／選人／理由重整保留、計時與組別顯示正確、served JS/CSS 與工作區 hash 一致、無pageerror與HTTP錯誤，沒有AI請求；finally清除本次合成帳號並確認無法登入。未修改真實學生資料；純排版還原未觸發完整資安模擬。
+
+同步前確認原站app.js／review.css等於本輪備份版本，再同步到 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site`；`http://127.0.0.1:18079/control/game.html` 已套用。全套仍因既有禁止建立／刪除其他資料庫限制而未執行，未提交／合併／推送，沒有正式部署流程。下一步在原網址檢視已恢復的版面。已套用 product-owner-teaching、impeccable、emil-design-eng、test-driven-development、karpathy-guidelines、playwright-cli、verification-before-completion。
+
+---
+
+# 本輪狀態：分類與推理四格排列（2026-09-28）
+
+使用者核可參考圖：上排合理說法／破綻證據牆，下排待分類／我的判斷（選人與理由），並將分類操作說明移到頁首原關卡說明位置。已在 fix/xiaomai-ui-followup@19c82b0 的既有未提交修改上完成，保留原有修改、加寬對話與素材。app.js 拆出共用分類說明及 wall／tray 輸出，combined 按四格組合；review.css 以等寬雙欄排列，上排跨兩欄，清除待分類既有上邊距以對齊下排。舊 evidence 階段保留原結構。DESIGN.md 同步核可排列。
+
+產品理解：主方案以相同欄寬左右對照已分類證詞，再在下排分類／判斷；備案保留整條判斷右欄較省改動，但不符合使用者示意。手機改為依序向下閱讀。資料仍沿用既有草稿服務與資料庫，未新增套件、費用、答案提示或輸入契約；長證詞增加頁高，仍須捲動。本輪局部決定：兩欄等寬、32px 間距，保留原有按鈕、導覽與文字。已交付教學與限制。
+
+TDD：在既有 tests/immersion.test.mjs 的分類／選人／草稿還原流程加入真實瀏覽器區塊位置斷言，先因「Judgment belongs below the classified groups」失敗；實作後抓到 .tray 原有 margin-top 造成下排未對齊，依原樣式定位修正後 2/2 通過。收尾回歸（既有 PLAYWRIGHT_MODULE／TEST_PHP_BINARY）：`node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs tests/immersion.test.mjs` → 15 通過、0 失敗、0 跳過，exit 0；app.js 語法、git diff --check 通過。其後僅更新交接與設計文件。
+
+兩輪桌機1280×800／手機375×812截圖：`.screenshots/immersion/four-grid.mjs` 第一輪工作區、第二輪原試玩站，均讀回截圖。最终 `.screenshots/immersion/four-grid-round2-desktop.png`、`four-grid-round2-mobile.png`。八項自評：層次（分類上、操作下）、留白（32px 欄間與既有卡片內距）、字體（沿用 Work Sans／中文後備、標題層級）、配色（紙白灰、合理綠與破綻玫紅原語意色）、對齊（上下兩列同邊界）、響應式（375單欄無水平溢出）、狀態（空區／有卡片／選人／focus／未完成送出鎖定正常）、動效（沿用既有按鈕回饋，未寫新動畫）兩輪通過。溢出偵測以已知4000px探針校準。Impeccable 引擎仍不可用，沿用既有設計脈絡與人工檢查，不宣稱自動掃描通過。
+
+簡短QA採學生、施測者與鍵盤操作角度，驗證兩分類區與待分類往返、四格/手機順序、導覽焦點、選人理由重整還原。`.screenshots/immersion/live.mjs` 另以既有明確合成帳號流程走真實 Chrome→PHP→指定 idealightsdg_cake，兩組均確認草稿重整保留、計時與各組顯示、served files hash一致、無pageerror／HTTP錯誤，未呼叫AI；finally清除本次合成帳號並確認無法再登入。沒有觸及真實學生資料，純版面調整未觸發完整資安模擬。
+
+同步前確認試玩站 app.js／review.css SHA256 等於本輪修改前版本，備份 `.screenshots/immersion/four-grid.app.js.before`、`four-grid.review.css.before` 後同步至 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site`。原網址 `http://127.0.0.1:18079/control/game.html` 已套用。全套仍受既有不能建刪其他資料庫限制，未提交／合併／推送，沒有正式部署流程。下一步可在原網址查看四格；不得將本輪局部回歸當成全套發布驗收。已套用 product-owner-teaching、impeccable、emil-design-eng、test-driven-development、karpathy-guidelines、systematic-debugging、playwright-cli、verification-before-completion。
+
+---
+
+# 本輪狀態：訊問對話區加寬（2026-09-28）
+
+使用者要求右側人物資訊再往右、對話視窗加大。沿用 fix/xiaomai-ui-followup@19c82b0 的未提交沉浸感修改，只把 review.css 的原話側欄比例由 .7fr 改為 .4fr，保留 240px 最小寬與既有手機排列。其餘既有未提交檔案保留。本輪局部決定採約 71% 對話／29% 參照，沒有新增功能、資料流、相依或費用；相較隱藏原話，縮窄右欄可保留對照能力，代價是長原話換行較多。
+
+驗收：`.screenshots/immersion/chat-width.mjs` 使用公開劇本與合成 API 狀態，第一輪工作區、第二輪原本機站，均以 Chrome 1280×800／375×812 執行並讀回兩張截圖。瀏覽器 bounding box 實測桌機對話 497.64→604.28px、右欄 348.34→241.70px；手機保持 341px 單欄。溢出偵測先用 4000px 探針確認會報真，再移除驗收。學生／施測者／鍵盤角度 QA：切換人物後原話與公開資料完全相同、輸入框可聚焦、沒有水平溢出與 pageerror、無 AI 請求。純版面變更未觸發完整資安模擬，未改寫研究資料。
+
+兩輪八項自評：層次（對話加寬、原話從屬）、留白（保留既有區塊與內距）、字體（原有 Work Sans／中文後備與標題層级）、配色（紙白灰與橘色操作）、對齊（並排邊界一致）、響應式（手機上下、無水平溢出）、狀態（選人／空對話／鍵盤焦點正常，既有流程回歸通過）、動效（沿用既有按鈕回饋，未新增）均符合本輪範圍。最終圖：`.screenshots/immersion/chat-width-round2-desktop.png`、`chat-width-round2-mobile.png`。Impeccable 引擎缺少且無法建立快取，改採既有 PRODUCT／DESIGN 與人工審查，未宣稱自動掃描通過。
+
+回歸：沿用既有 PLAYWRIGHT_MODULE／TEST_PHP_BINARY，`node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs tests/immersion.test.mjs`：15 通過、0 失敗、0 跳過，exit 0；`git diff --check` 通過。此次為可逆單行樣式調整，未另增永久測試；保留實際畫面驗收腳本。全套仍受既有不得建刪其他資料庫限制，未以局部回歸冒稱全套，未提交／合併／推送。
+
+已確認原試玩站 CSS 等於修改前工作區，備份 `.screenshots/immersion/chat-width.css.before` 後同步至 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site/assets/css/game/review.css`，兩份 SHA256 相同且 HTTP 讀回包含新比例。原網址 `http://127.0.0.1:18079/control/game.html` 已套用；沒有正式部署流程。下一步可直接在原網址檢視寬度。已套用 using-superpowers、product-owner-teaching、impeccable、emil-design-eng、playwright-cli、verification-before-completion。
+
+---
+
+# 本輪狀態：沉浸感第 2／3／4 項已套用本機（2026-09-28）
+
+使用者要求「改改看，但改之前先把這版 git 保存」。先提交 1a1d568，再整合既有遠端 18b6e63，得到 checkpoint **19c82b0fa0319e3b511e8e62b569c5570c237f77**；已推送 origin/fix/xiaomai-ui-followup，git ls-remote 確認相同 SHA，之後才開始本輪 UI 修改。main 未動。大型影片與本機設定保持原狀，不在 checkpoint 內。
+
+本輪修改：app.js 顯示原章節名稱；訊問選人後以靜態照片及精確原始發言作參照；combined 整理為「證詞分類／我的判斷」，桌機並排、手機上下，提供可鍵盤操作並移動焦點的區域導覽。調查須知同步改用區域名稱。review.css 沿用淺灰紙白、橘色重點與桌機 80% 密度，不新增動畫、圖片生成、相依或費用。沒有改題目、提示、正解、分組、計時、送出條件或後端契約。
+
+產品理解：前端像同一本案件資料夾的頁面編排；玩家查看既有材料，操作仍交由既有草稿 API 保存，再由 state 還原。主方案縮短找材料與填答的距離；備案僅改標題雖更省改動但查找改善有限，因此依已核可範圍實作。長篇證詞仍需捲動；不壓縮或改写證詞以避免額外教學提示。手機沒有強制縮放，順序閱讀。
+
+TDD：新增 tests/immersion.test.mjs。先觀察缺少原話 complementary 區域而失敗，最小實作後通過；下一個行為先觀察缺少作答導覽而失敗，實作後通過。驗證切換角色保留輸入／共用倒數、原話 HTML 逸出且不觸發 AI、導覽焦點、分類／選人／理由草稿重整還原與未分類完不可送出。
+
+回歸命令（既有 PLAYWRIGHT_MODULE、TEST_PHP_BINARY）：node --test --test-concurrency=1 tests/config.test.mjs tests/rank.test.mjs tests/media.test.mjs tests/test-config.test.mjs tests/ui-review.test.mjs tests/immersion.test.mjs → **15 通過、0 失敗、0 跳過，exit 0**。app.js 語法與 git diff --check 通過。
+
+兩輪畫面：.screenshots/immersion/review.mjs 以公開劇本及合成 API 狀態驗證1280×800／375×812。第一輪工作區，第二輪實際站。最終截图 `.screenshots/immersion/round2-desktop.png`、`round2-mobile.png` 均已讀回。桌機截 combined、手機截訊問；兩種尺寸均操作兩個階段。八項自評：層次（章節／區域／卡片清楚）、留白（章節24、欄32、卡片16/20）、字體（沿用既有字系與標題層級）、配色（既有紙白灰與功能色）、對齊（兩欄同起點）、響應式（幾何量測無橫向溢出）、狀態（選人、草稿、空對話、disabled 與 focus 可用）、動效（沿用按鈕回饋，不新增動畫）兩輪均通過。第一輪合成公開設定少了 ck_state 額外組合的 combined 秒數，已修正驗收 fixture，第二輪確認 4:00 倒數；不是產品計時缺陷。溢出測量先插入已知4000px元素校準，發現單看 scrollWidth 會受既有 overflow/zoom 影響，改用元素 bounding box 並確認能辨識探針，再移除探針驗收。Impeccable 自動引擎仍不可用，人工審查，不宣稱自動掃描通過。
+
+同步前逐一 git hash-object 核對既有站 app.js／review.css 等於 checkpoint，備份 .screenshots/immersion/*.before，再同步至 `C:/Users/User/AppData/Local/Temp/idealight-preview-e2102de6/site`，SHA256 相同。實際網站 `http://127.0.0.1:18079/control/game.html`。
+
+學生／施測者／鍵盤使用者簡短 QA：查原話、切換角色與作答區、未完成不允許送出、兩組既有顯示差異均正常；沒有新增答案線索。`.screenshots/immersion/live.mjs` 用指定 idealightsdg_cake 中明確命名的合成帳號、固定組別1與2，各自走真實 Chrome→PHP→MySQL；無 API 攔截替代草稿。驗證輸入、分類、選人與理由經重整保留，計時顯示、實际 served files hash、一組無分數／二組有分數、無 pageerror／HTTP 4xx/5xx。禁止 AI 請求，實際0次。首輪測試 fixture 誤把 onboarding_step 放在 ck_runs，已按真實 ck_run_settings 契約修正後通過；不是產品修改。兩次執行皆 finally 清除合成帳號並確認不能再登入。未動真實學生、不消耗自動分派序號、不調用付費 AI。
+
+剩餘限制／下一步：本輪新 UI、測試與本節交接仍在 fix/xiaomai-ui-followup 工作區未提交；改版前 checkpoint 已在遠端。全套測試會建刪其他資料庫，受使用者既有資料庫限制不能執行，因此不合併 main、不推送本輪新 UI、不正式部署。沒有新增正式站，原本機網址已套用。需要修改時延續本工作區；不要將 checkpoint 誤認為包含新版 UI。已套用 product-owner-teaching、impeccable、emil-design-eng、test-driven-development、playwright-cli、verification-before-completion。
+
+---
+
 # 本輪狀態：沉浸感改版前存檔（2026-09-28）
 
 使用者核可先做章節名稱露出、訊問角色資訊、分類與推理版面整理，並明確要求「改之前先把這版 git 保存一下」。此存檔仍為改版前程式，包含已驗收的 1 控制／2 實驗編號修正、保留既有條件的 migration、最新版角色 4／5 圖片與交接。先保存並整合既有 origin/fix/xiaomai-ui-followup 的 18b6e63 文件／素材，再推送同一分支；不合併 main，不執行正式部署。大型影片、本機設定、學生資料與私密 migration 對照均不提交。
