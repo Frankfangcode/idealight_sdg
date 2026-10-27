@@ -112,6 +112,7 @@ body { background: var(--color-canvas); color: var(--color-text); }
 .tcard__face--front .who__role, .tcard__face--front .tcard__trait { color: var(--color-text-muted); }
 .tcard__face--front .tcard__cta { color: #8b4b00; padding-top: var(--sp-3); border-top: 1px solid var(--color-border); }
 .tcard__face--back .tcard__head { padding-right: var(--sp-6); }
+.tcard__face--back .tcard__text { font-size: calc(var(--fs-base) * 1.2); line-height: 1.85; }
 .tcard__face .tcard__text, .tcard__face .who { overflow-wrap: anywhere; }
 .tray__items { grid-template-columns: repeat(3,minmax(0,1fr)); }
 .tray__head { flex-wrap: wrap; }
